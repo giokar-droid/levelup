@@ -1,0 +1,1522 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Level Up</title>
+<meta name="description" content="Una quest al giorno: streak, livelli, boss e un buddy che cresce con te.">
+<meta name="theme-color" content="#13112b">
+<meta name="referrer" content="no-referrer">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Level Up">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+:root{
+  --bg:#13112b; --bg2:#1c1940; --card:#251f55; --card2:#2e2766; --line:#41388a;
+  --text:#ffffff; --muted:#c5bff2; --dim:#8f88c9;
+  --acc:#6a46f5; --acc-d:#4a2ad0; --on-acc:#ffffff;
+  --gold:#ffc23d; --gold-d:#d0900a; --ok:#3ddc84; --ok-d:#1f9d58;
+  --fire:#ff7a1a; --bad:#ff5a7a; --blue:#4cc3ff; --purple:#c46bff;
+  --r:20px;
+  color-scheme: dark;
+}
+body[data-theme=lava]{--bg:#1f0d0b;--bg2:#2d1411;--card:#3c1a15;--card2:#4c221b;--line:#73321f;--acc:#ff6a3d;--acc-d:#c03a12;--on-acc:#2a0800;--muted:#f6c9b9;--dim:#bd8a78}
+body[data-theme=ocean]{--bg:#06182a;--bg2:#0a2440;--card:#0e3156;--card2:#133d6b;--line:#1d5a8f;--acc:#1fb6ff;--acc-d:#0a7fbd;--on-acc:#03203a;--muted:#b9def6;--dim:#7ca9c8}
+body[data-theme=jungle]{--bg:#0a1d12;--bg2:#0f2e1c;--card:#153c26;--card2:#1c4c31;--line:#2b6b45;--acc:#2fcf78;--acc-d:#178e4d;--on-acc:#04230f;--muted:#c0e9d0;--dim:#84b89a}
+body[data-theme=gold]{--bg:#191304;--bg2:#281f09;--card:#38290c;--card2:#483610;--line:#70571c;--acc:#ffc23d;--acc-d:#c98b08;--on-acc:#2a1d00;--muted:#f4e3b3;--dim:#c0a76b}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; min-height:100dvh; color:var(--text);
+  background:radial-gradient(circle at 50% -10%, var(--bg2), var(--bg) 62%) fixed, var(--bg);
+  font-family:ui-rounded, 'SF Pro Rounded', 'Arial Rounded MT Bold', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  -webkit-tap-highlight-color:transparent; overscroll-behavior-y:none;
+}
+#app{max-width:520px; margin:0 auto; padding:calc(env(safe-area-inset-top) + 12px) 16px calc(env(safe-area-inset-bottom) + 104px)}
+body.wz #app{padding-bottom:calc(env(safe-area-inset-bottom) + 24px)}
+h1{font-size:2rem; line-height:1.08; margin:.35em 0}
+h2{font-size:1.55rem; line-height:1.12; margin:.45em 0 .35em}
+h3{font-size:1.08rem; margin:1.1em 0 .5em; color:var(--muted)}
+p{font-size:1.08rem; line-height:1.38; margin:.45em 0}
+a{color:inherit}
+.muted{color:var(--muted)} .dim{color:var(--dim)} .small{font-size:.92rem} .center{text-align:center}
+b,strong{font-weight:800}
+button{font:inherit; color:inherit}
+.card,.bubble,.say,.sentence,.pact,.toast,.mc,.diary{overflow-wrap:anywhere}
+
+.card{background:var(--card); border:2px solid var(--line); border-radius:var(--r); padding:16px; margin:14px 0; box-shadow:0 6px 0 rgba(0,0,0,.28)}
+.row{display:flex; align-items:center; gap:12px}
+.grow{flex:1; min-width:0}
+
+.btn{display:flex; align-items:center; justify-content:center; gap:8px; width:100%; border:0; border-radius:16px; padding:13px 16px; font-weight:800; font-size:1.15rem; line-height:1.15; color:var(--on-acc); background:var(--acc); box-shadow:0 5px 0 var(--acc-d); cursor:pointer; transition:transform .06s, box-shadow .06s, filter .15s; margin-top:10px; text-align:center; text-decoration:none; touch-action:manipulation}
+.btn:hover{filter:brightness(1.07)}
+.btn:active{transform:translateY(4px); box-shadow:0 1px 0 var(--acc-d)}
+.btn small{font-size:.8rem; font-weight:700}
+.btn.ok{background:var(--ok); box-shadow:0 5px 0 var(--ok-d); color:#04260f}
+.btn.ok:active{box-shadow:0 1px 0 var(--ok-d)}
+.btn.gold{background:var(--gold); box-shadow:0 5px 0 var(--gold-d); color:#2a1d00}
+.btn.gold:active{box-shadow:0 1px 0 var(--gold-d)}
+.btn.ghost{background:transparent; border:2px solid var(--line); box-shadow:none; color:var(--muted)}
+.btn.big{font-size:1.35rem; padding:17px 16px}
+.btn[disabled]{opacity:.4; pointer-events:none}
+.link{background:none; border:0; color:var(--muted); text-decoration:underline; text-underline-offset:3px; font-weight:700; font-size:.95rem; padding:12px 4px; min-height:44px; cursor:pointer; display:block; margin:0 auto; touch-action:manipulation}
+
+.chips{display:flex; flex-wrap:wrap; margin:-4px}
+.chip{display:inline-flex; align-items:center; gap:6px; min-height:44px; padding:9px 13px; border-radius:14px; background:var(--card2); border:2px solid var(--line); color:var(--text); font-weight:700; font-size:1rem; margin:4px; cursor:pointer; box-shadow:0 3px 0 rgba(0,0,0,.25); text-align:left; line-height:1.2; touch-action:manipulation}
+.chip.on{background:var(--acc); border-color:var(--acc); color:var(--on-acc)}
+.chip .tag{font-size:.7rem; background:var(--gold); color:#2a1d00; border-radius:99px; padding:1px 7px}
+.chips.col{flex-direction:column}
+.chips.col .chip{width:calc(100% - 8px)}
+input.txt,textarea.txt{width:100%; font:inherit; font-size:1.1rem; padding:11px 14px; border-radius:14px; border:2px solid var(--line); background:var(--bg2); color:var(--text); outline:none; margin-top:6px}
+input.txt:focus,textarea.txt:focus{border-color:var(--acc)}
+textarea.txt{min-height:90px; resize:vertical}
+.check{display:flex; gap:10px; align-items:flex-start; margin-top:10px; line-height:1.3}
+.check input{width:22px; height:22px; flex:none; margin:0}
+input[type=file]{font-size:16px; margin-top:8px; max-width:100%; color:var(--muted)}
+
+/* wizard */
+.wz-top{display:flex; align-items:center; gap:10px; margin-bottom:10px}
+.wz-back{width:44px; height:44px; border-radius:12px; border:2px solid var(--line); background:var(--card); font-size:1.2rem; cursor:pointer; flex:none}
+.bar{flex:1; height:14px; background:var(--card); border-radius:99px; overflow:hidden; border:2px solid var(--line)}
+.bar>i{display:block; height:100%; background:linear-gradient(90deg,var(--gold),var(--fire)); border-radius:99px; transition:width .45s}
+.xpc{font-weight:800; color:var(--gold); white-space:nowrap}
+.lesson{display:inline-block; background:rgba(255,194,61,.14); color:var(--gold); border:1.5px solid rgba(255,194,61,.45); padding:3px 11px; border-radius:99px; font-weight:800; font-size:.85rem}
+.hero{text-align:center; padding:18px 0 4px}
+.big-emoji{font-size:110px; line-height:1.05; display:inline-block; filter:drop-shadow(0 8px 0 rgba(0,0,0,.28))}
+.say{background:var(--bg2); border-left:4px solid var(--gold); border-radius:12px; padding:10px 14px; margin:12px 0}
+.wz-foot{margin-top:18px}
+.buddy-pick{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+.bp{border:2px solid var(--line); background:var(--card2); border-radius:18px; padding:12px 8px; cursor:pointer; text-align:center; box-shadow:0 4px 0 rgba(0,0,0,.25); font:inherit; color:inherit}
+.bp .e{display:block; font-size:54px; line-height:1.1}
+.bp b{display:block}
+.bp .evo{display:block; font-size:.95rem; color:var(--dim)}
+.kc .ke,.badge .be{display:block}
+.bp.on{border-color:var(--gold); background:var(--card); box-shadow:0 0 0 3px var(--gold) inset, 0 4px 0 rgba(0,0,0,.25)}
+.calc{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:12px 0}
+.calc .box{background:var(--card); border:2px solid var(--line); border-radius:16px; padding:12px; text-align:center}
+.calc .num{font-size:2.3rem; font-weight:800; line-height:1.1}
+.calc .up .num{color:var(--ok)} .calc .down .num{color:var(--bad)}
+.sentence{background:#fff8e7; color:#2b2140; border-radius:14px; padding:12px 14px; font-weight:700; margin-top:14px; font-size:1.08rem; line-height:1.35}
+.quiz .chip{width:calc(100% - 8px)}
+.fb{border-radius:14px; padding:10px 14px; margin-top:10px; font-weight:700}
+.fb.ok{background:rgba(61,220,132,.15); border:2px solid var(--ok)} .fb.no{background:rgba(255,90,122,.15); border:2px solid var(--bad)}
+.pact{background:#fff8e7; color:#2b2140; border-radius:18px; padding:18px 16px; border:3px solid #e2c88f; box-shadow:0 6px 0 rgba(0,0,0,.3); text-align:left}
+.pact p{font-size:1.02rem; margin:.4em 0}
+.pact ul{margin:.3em 0; padding-left:1.2em} .pact li{margin:.2em 0}
+.pact-title{font-weight:800; font-size:1.3rem; text-align:center; letter-spacing:.06em}
+.pact .sig{display:block; max-width:100%; height:80px; margin:6px auto 0}
+.pact-foot{font-size:.85rem; text-align:center; opacity:.7}
+.sigpad{width:100%; height:130px; background:#fff; border-radius:14px; border:2px dashed #c9b37c; touch-action:none; display:block; margin-top:8px; cursor:crosshair}
+.gate ol li{margin:.45em 0; font-size:1.05rem}
+.gate img{border-radius:24px; box-shadow:0 6px 0 rgba(0,0,0,.3)}
+
+/* home */
+.topbar{display:flex; align-items:center; gap:8px}
+.pill{display:inline-flex; align-items:center; gap:5px; background:var(--card); border:2px solid var(--line); padding:4px 11px; border-radius:99px; font-weight:800; white-space:nowrap}
+.pill.lv{background:var(--acc); border-color:var(--acc); color:var(--on-acc)}
+.iconbtn{width:44px; height:44px; border-radius:12px; border:2px solid var(--line); background:var(--card); font-size:1.15rem; cursor:pointer; flex:none}
+.xp{margin-top:10px}
+.xp .bar>i{background:linear-gradient(90deg,var(--acc),var(--blue))}
+.xp .lbl{display:flex; justify-content:space-between; font-size:.85rem; color:var(--dim); font-weight:700; margin-top:2px}
+.buddy-zone{text-align:center; padding-top:30px}
+.buddy{position:relative; display:inline-block; font-size:118px; line-height:1.05; isolation:isolate; cursor:pointer; background:none; border:0; padding:0}
+.buddy .hat{position:absolute; left:50%; top:-34px; transform:translateX(-50%); font-size:50px}
+.buddy.aura-fire::before,.buddy.aura-bolt::before,.buddy.aura-rainbow::before{content:''; position:absolute; inset:-18px; border-radius:50%; z-index:-1; animation:pulse 1.6s ease-in-out infinite}
+.buddy.aura-fire::before{background:radial-gradient(circle, rgba(255,122,26,.6), transparent 66%)}
+.buddy.aura-bolt::before{background:radial-gradient(circle, rgba(76,195,255,.6), transparent 66%)}
+.buddy.aura-rainbow::before{background:conic-gradient(from 0deg, rgba(255,90,122,.5), rgba(255,194,61,.5), rgba(61,220,132,.5), rgba(76,195,255,.5), rgba(196,107,255,.5), rgba(255,90,122,.5)); -webkit-mask:radial-gradient(circle, #000 35%, transparent 70%); mask:radial-gradient(circle, #000 35%, transparent 70%)}
+.bname{font-weight:800; color:var(--muted); font-size:.95rem}
+.bubble{position:relative; background:#fff; color:#1b1640; border-radius:18px; padding:11px 14px; font-weight:700; font-size:1.04rem; line-height:1.3; margin:12px auto 0; box-shadow:0 4px 0 rgba(0,0,0,.28); text-align:left}
+.bubble::before{content:''; position:absolute; top:-10px; left:50%; transform:translateX(-50%); border:10px solid transparent; border-top:0; border-bottom-color:#fff}
+.quest .qe{font-size:46px; line-height:1}
+.quest .qt{font-size:1.55rem; font-weight:800; line-height:1.1}
+.label{font-size:.78rem; letter-spacing:.08em; font-weight:800; color:var(--dim); text-transform:uppercase}
+.donebox{background:rgba(61,220,132,.14); border:2px solid var(--ok); border-radius:14px; padding:12px; font-weight:800; text-align:center; margin-top:10px; font-size:1.1rem}
+.flame{font-size:62px; line-height:1}
+.flame.off{filter:grayscale(1) opacity(.45)}
+.flame.ember{filter:saturate(.35) brightness(.75)}
+.flame.wait{filter:saturate(.8) brightness(.9)}
+.snum{font-size:2.9rem; font-weight:800; line-height:.95}
+.state{margin-top:8px; font-weight:700; font-size:1rem; line-height:1.3}
+.state.warn{color:var(--gold)}
+.week{display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin-top:12px}
+.wd{text-align:center; font-size:.78rem; color:var(--dim); font-weight:800}
+.wd b{display:grid; place-items:center; height:34px; border-radius:10px; background:var(--bg2); border:2px solid var(--line); font-size:1rem; margin-top:2px; color:#fff}
+.wd.done b{background:var(--fire); border-color:var(--fire); color:#2a0800}
+.wd.epic b{background:var(--gold); border-color:var(--gold)}
+.wd.shield b{background:var(--blue); border-color:var(--blue)}
+.wd.miss b{border-color:rgba(255,90,122,.6)}
+.wd.today b{border-style:dashed; border-color:#fff}
+.chest-card .ce{font-size:48px}
+.moods{display:flex; justify-content:space-between; gap:6px; margin-top:8px}
+.moods button{flex:1; font-size:34px; background:var(--card2); border:2px solid var(--line); border-radius:14px; padding:6px 0 2px; cursor:pointer; box-shadow:0 3px 0 rgba(0,0,0,.25); touch-action:manipulation}
+.moods button span{display:block; font-size:.7rem; font-weight:800; color:var(--dim)}
+.boss-e{font-size:52px; line-height:1}
+.boss-e.dead{filter:grayscale(1); opacity:.5; transform:rotate(90deg)}
+.hp{font-size:1.1rem; letter-spacing:2px}
+.tip{background:var(--bg2); border-radius:12px; padding:8px 12px; margin-top:10px}
+.banner{background:linear-gradient(90deg, rgba(255,194,61,.2), rgba(255,122,26,.2)); border:2px solid var(--gold); border-radius:16px; padding:12px; margin-top:12px}
+.banner .btns{display:flex; gap:8px} .banner .btn{margin-top:8px; font-size:1rem; padding:10px; min-height:44px}
+.inuse{display:inline-block; font-weight:800; color:var(--ok); white-space:nowrap; padding:9px 4px}
+.care{border-color:var(--blue)}
+
+/* grids */
+.grid3{display:grid; grid-template-columns:repeat(3,1fr); gap:10px}
+.kc{aspect-ratio:3/4; border-radius:16px; border:2px solid var(--line); background:var(--card2); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:8px 6px; text-align:center; font-weight:800; font-size:.82rem; line-height:1.15; cursor:pointer; position:relative; box-shadow:0 4px 0 rgba(0,0,0,.25); font-family:inherit; color:inherit}
+.kc .ke{font-size:2.2rem; margin-bottom:4px}
+.kc.locked{opacity:.4; cursor:default}
+.kc.r-r{border-color:var(--blue)} .kc.r-e{border-color:var(--purple); box-shadow:0 0 14px rgba(196,107,255,.45)} .kc.r-l{border-color:var(--gold); box-shadow:0 0 18px rgba(255,194,61,.55)}
+.kc .new{position:absolute; top:-7px; right:-7px; background:var(--bad); color:#fff; font-size:.7rem; padding:1px 7px; border-radius:99px}
+.rar{display:inline-block; font-size:.75rem; font-weight:800; letter-spacing:.08em; padding:2px 10px; border-radius:99px; text-transform:uppercase}
+.rar.r-c{background:var(--card2)} .rar.r-r{background:var(--blue); color:#012} .rar.r-e{background:var(--purple); color:#fff} .rar.r-l{background:var(--gold); color:#2a1d00}
+.badge{border-radius:16px; border:2px solid var(--line); background:var(--card2); padding:10px 6px; text-align:center; font-weight:800; font-size:.8rem; line-height:1.15; cursor:pointer; font-family:inherit; color:inherit}
+.badge .be{font-size:2rem}
+.badge.locked{opacity:.35; filter:grayscale(1)}
+.stats{display:grid; grid-template-columns:repeat(3,1fr); gap:8px}
+.stat{background:var(--bg2); border-radius:14px; padding:8px; text-align:center}
+.stat b{display:block; font-size:1.6rem; line-height:1.1}
+.stat span{font-size:.75rem; color:var(--dim); font-weight:800}
+.heat{display:grid; grid-template-rows:repeat(7,1fr); grid-auto-flow:column; grid-auto-columns:1fr; gap:4px; margin-top:8px}
+.heat i{aspect-ratio:1; border-radius:4px; background:var(--bg2); display:block}
+.heat i.done{background:var(--fire)} .heat i.epic{background:var(--gold)} .heat i.shield{background:var(--blue)} .heat i.miss,.legend i.miss{background:transparent; box-shadow:inset 0 0 0 2px var(--bad)} .heat i.today{outline:2px dashed #fff; outline-offset:-2px} .heat i.future{background:transparent}
+.legend{display:flex; flex-wrap:wrap; gap:10px; font-size:.78rem; color:var(--dim); font-weight:700; margin-top:8px}
+.legend i{display:inline-block; width:11px; height:11px; border-radius:3px; vertical-align:-1px; margin-right:4px}
+.shop-item{display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:2px solid var(--line)}
+.shop-item:last-child{border-bottom:0}
+.shop-item .se{font-size:38px; width:50px; text-align:center}
+.shop-item .btn{width:auto; margin:0; padding:9px 14px; font-size:1rem; white-space:nowrap; min-height:44px}
+.menu .btn{justify-content:flex-start}
+.diary{border-bottom:2px solid var(--line); padding:8px 0}
+.diary:last-child{border-bottom:0}
+.stepper{display:flex; align-items:center; gap:12px; justify-content:center; margin:6px 0}
+.stepper button{width:46px; height:46px; border-radius:14px; border:2px solid var(--line); background:var(--card2); font-size:1.4rem; font-weight:800; cursor:pointer}
+.stepper b{font-size:2rem; min-width:64px; text-align:center}
+details{margin-top:10px} summary{cursor:pointer; font-weight:800; color:var(--muted); padding:10px 0; min-height:44px}
+ol{padding-left:1.3em; margin:.4em 0} ol li{margin:.25em 0; line-height:1.35}
+
+/* tabs, modal, toast, fx */
+#tabs{position:fixed; left:0; right:0; bottom:0; z-index:20; background:var(--bg2); border-top:2px solid var(--line); padding:6px 8px calc(env(safe-area-inset-bottom) + 6px)}
+#tabs .in{display:flex; max-width:520px; margin:0 auto; justify-content:space-around}
+#tabs button{position:relative; background:none; border:0; color:var(--dim); font-weight:800; font-size:.74rem; display:flex; flex-direction:column; align-items:center; padding:4px 10px; cursor:pointer; border-radius:12px; line-height:1.1; min-width:56px}
+#tabs button span{font-size:1.45rem; line-height:1.2}
+#tabs button.on{color:#fff; background:var(--card)}
+#tabs .dot{position:absolute; top:2px; right:8px; width:10px; height:10px; border-radius:50%; background:var(--bad)}
+#modal{position:fixed; inset:0; z-index:50; background:rgba(5,3,20,.78); display:grid; place-items:center; padding:16px}
+#modal[hidden]{display:none}
+.mc{width:100%; max-width:430px; background:var(--card); border:2px solid var(--line); border-radius:24px; padding:22px 18px; text-align:center; max-height:86dvh; overflow:auto; animation:pop .42s cubic-bezier(.2,1.4,.4,1) both; outline:none}
+.mc.left{text-align:left}
+.mc h2{margin-top:.2em}
+.lvup{font-size:2.4rem; font-weight:800; color:var(--gold); letter-spacing:.04em; line-height:1}
+#toasts{position:fixed; top:calc(env(safe-area-inset-top) + 10px); left:0; right:0; z-index:60; display:flex; flex-direction:column; align-items:center; gap:8px; pointer-events:none; padding:0 12px}
+.toast{pointer-events:auto; background:var(--gold); color:#2a1d00; font-weight:800; padding:10px 16px; border-radius:16px; box-shadow:0 4px 0 var(--gold-d); animation:pop .4s both; max-width:480px; cursor:pointer}
+.floatxp{position:fixed; z-index:65; font-weight:800; font-size:2rem; color:var(--gold); text-shadow:0 3px 0 rgba(0,0,0,.4); pointer-events:none; animation:floatup 1.1s ease-out forwards}
+#fx{position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:70}
+
+@keyframes wobble{0%,100%{transform:rotate(0)}20%{transform:rotate(-9deg)}40%{transform:rotate(9deg)}60%{transform:rotate(-5deg)}80%{transform:rotate(5deg)}}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes pop{0%{transform:scale(.3);opacity:0}70%{transform:scale(1.12);opacity:1}100%{transform:scale(1)}}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
+@keyframes shake{0%,100%{transform:rotate(0)}25%{transform:rotate(-12deg) scale(1.05)}75%{transform:rotate(12deg) scale(1.05)}}
+@keyframes floatup{0%{opacity:0; transform:translate(-50%,10px) scale(.6)}20%{opacity:1; transform:translate(-50%,0) scale(1.1)}100%{opacity:0; transform:translate(-50%,-90px) scale(1)}}
+.wobble{display:inline-block; animation:wobble 1.5s ease-in-out infinite}
+.bob{display:inline-block; animation:bob 2.6s ease-in-out infinite}
+.pop{animation:pop .5s cubic-bezier(.2,1.4,.4,1) both}
+.pulse{animation:pulse 1.5s ease-in-out infinite}
+.shake{display:inline-block; animation:shake .35s ease-in-out infinite}
+@media (prefers-reduced-motion: reduce){*,*::before{animation:none !important; transition:none !important}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<nav id="tabs" hidden><div class="in"></div></nav>
+<div id="modal" hidden role="dialog" aria-modal="true"></div>
+<div id="toasts" aria-live="polite"></div>
+<canvas id="fx" aria-hidden="true"></canvas>
+<script>
+'use strict';
+const VERSION = '1.1';
+const KEY = 'levelup.v1';
+const P = new URLSearchParams(location.search);
+const DEV = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
+
+/* ---------- date ---------- */
+function now(){
+  const n = new Date(), o = DEV ? P.get('oggi') : null;
+  if (o && /^\d{4}-\d\d-\d\d$/.test(o)) { const [y,m,d] = o.split('-').map(Number); return new Date(y, m-1, d, n.getHours(), n.getMinutes(), n.getSeconds()); }
+  return n;
+}
+const pad = n => String(n).padStart(2,'0');
+const dk = dt => `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}`;
+const pd = k => { const [y,m,d] = k.split('-').map(Number); return new Date(y, m-1, d); };
+const addD = (k,n) => { const d = pd(k); d.setDate(d.getDate()+n); return dk(d); };
+const today = () => dk(now());
+const dow = k => (pd(k).getDay()+6)%7;            // 0 = lunedì
+const weekStart = k => addD(k, -dow(k));
+const daysBetween = (a,b) => Math.round((pd(b)-pd(a))/864e5);
+const fmtDate = k => isDay(k) ? k.split('-').reverse().join('.') : '';
+const dayIdx = k => daysBetween('2024-01-01', k);
+const isDay = d => typeof d === 'string' && /^\d{4}-\d\d-\d\d$/.test(d);
+
+/* ---------- util ---------- */
+const $ = (s, el=document) => el.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pick = a => a[Math.floor(Math.random()*a.length)];
+const byDay = (a, k) => a[((dayIdx(k) % a.length) + a.length) % a.length];
+const cap1 = s => s ? s[0].toUpperCase() + s.slice(1) : '';
+const lc1 = s => s ? s[0].toLowerCase() + s.slice(1) : '';
+const isStandalone = () => navigator.standalone || matchMedia('(display-mode: standalone)').matches;
+const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+/* ---------- contenuti ---------- */
+const BUDDIES = {
+  drago:  {label:'Drago',   stages:['🥚','🦎','🐲','🐉'], names:['Uovo misterioso','Draghetto','Drago giovane','Drago leggendario'], def:'Brace'},
+  squalo: {label:'Squalo',  stages:['🥚','🐟','🐬','🦈'], names:['Uovo misterioso','Pesce veloce','Delfino','Squalo supremo'], def:'Zanna'},
+  robot:  {label:'Mecha',   stages:['🥚','🤖','🦾','🚀'], names:['Uovo misterioso','Robot','Mecha','Mecha razzo'], def:'Bit'},
+  gorilla:{label:'Gorilla', stages:['🥚','🐵','🐒','🦍'], names:['Uovo misterioso','Scimmia','Scimmia agile','King Gorilla'], def:'Kong'},
+};
+const stageOf = lv => lv>=10 ? 3 : lv>=5 ? 2 : lv>=2 ? 1 : 0;
+const RANKS = [[1,'Novellino'],[3,'Apprendista'],[5,'Guerriero'],[8,'Campione'],[12,'Eroe'],[16,'Leggenda'],[20,'Mito']];
+const rankOf = lv => RANKS.filter(r => lv >= r[0]).pop()[1];
+const needFor = n => 60 + 30*(n-1);
+function levelOf(xp){ let lv = 1, base = 0; while (xp >= base + needFor(lv)) { base += needFor(lv); lv++; } return {lv, into: xp-base, need: needFor(lv)}; }
+
+const HABITS = {
+  pushup: {label:'Piegamenti', emoji:'💪', unit:'piegamenti', one:'piegamento', minis:[3,5,8], epics:[12,15,20], tip:'Sulle ginocchia valgono uguale.'},
+  squat:  {label:'Squat', emoji:'🦵', unit:'squat', one:'squat', minis:[5,10,15], epics:[20,30,40]},
+  plank:  {label:'Plank', emoji:'🧱', unit:'secondi di plank', one:'secondo di plank', minis:[20,30,45], epics:[60,90,120]},
+  abs:    {label:'Addominali', emoji:'🍫', unit:'addominali', one:'addominale', minis:[5,10,15], epics:[20,30,40]},
+  pull:   {label:'Sbarra', emoji:'🧗', unit:'secondi appeso alla sbarra', one:'secondo appeso alla sbarra', minis:[10,15,20], epics:[30,45,60], tip:'Se hai una sbarra: anche solo appeso conta, le trazioni arriveranno.'},
+  jacks:  {label:'Jumping jack', emoji:'⭐', unit:'jumping jack', one:'jumping jack', minis:[15,20,30], epics:[50,75,100]},
+  rope:   {label:'Corda', emoji:'🦘', unit:'salti con la corda', one:'salto con la corda', minis:[30,50,75], epics:[150,200,300]},
+  circuit:{label:'Mini circuito', emoji:'🎮', unit:'giri del circuito', one:'giro del circuito', minis:[1,2,3], epics:[4,5,6], tip:'1 giro = 5 squat + 3 piegamenti + 10 jumping jack.'},
+};
+const qty = (n, h) => `${n} ${+n === 1 ? (h.one || HABITS[h.key]?.one || h.unit) : h.unit}`;
+const GOALS = [
+  ['forte','💪 Diventare più forte'], ['sport','⚽ Andare meglio nel mio sport'], ['fisico','🔥 Un fisico più atletico'],
+  ['resist','🏃 Più fiato e resistenza'], ['energia','🔋 Più energia durante il giorno'], ['sicuro','😎 Sentirmi più sicuro di me'],
+  ['trazione','🧗 Riuscire a fare le trazioni'], ['papa','🏆 Battere papà a braccio di ferro'],
+];
+const WHYS = [
+  ['stare','Per stare bene con me stesso'], ['sport','Per il mio sport o la mia squadra'], ['specchio','Per piacermi di più allo specchio'],
+  ['energia','Per avere energia a scuola e quando gioco'], ['promessa','Per dimostrare che mantengo quello che dico'], ['record','Per battere un mio record'],
+];
+const IDENT = ['si allena tutti i giorni','non molla','mantiene le promesse che fa a se stesso','diventa più forte ogni giorno'];
+const CUES = ['Dopo essermi lavato i denti la sera','Appena torno da scuola','Prima di accendere la console o il telefono','Dopo cena','Appena sveglio','Dopo aver finito i compiti'];
+const PLACES = ['in camera mia','in salotto','sul balcone o in giardino','dove mi trovo'];
+const OBST = {
+  voglia:   {e:'😴', l:'non ho voglia',              plan:'faccio solo la versione mini: due minuti e basta.'},
+  dimentico:{e:'🧠', l:'me ne dimentico',            plan:'lascio la mia roba in vista e guardo il promemoria.'},
+  stanco:   {e:'🥱', l:'sono stanco',                plan:'faccio la mini e poi riposo: conta lo stesso.'},
+  tempo:    {e:'⏰', l:'non ho tempo',               plan:'la mini dura meno di due minuti: la faccio anche in pigiama.'},
+  noia:     {e:'😑', l:'mi annoio',                  plan:'metto la musica che mi carica e colpisco il boss della settimana.'},
+  vergogna: {e:'🙈', l:'non voglio che mi vedano',   plan:'la faccio in camera, a porta chiusa.'},
+  viaggio:  {e:'🧳', l:'sono in giro o in vacanza',  plan:'la mini si fa ovunque, senza attrezzi.'},
+};
+function planFor(k, p){
+  const o = OBST[k];
+  if (k === 'noia' && p.song) return `metto «${esc(p.song)}» e colpisco il boss della settimana.`;
+  if (k === 'viaggio' && ['pull','rope'].includes(p.habit?.key ?? p.habitKey)) return 'se non ho l\'attrezzo, faccio 10 squat al suo posto.';
+  return o.plan;
+}
+const PARTNERS = ['Papà','Mamma','Fratello o sorella','Un amico','Da solo'];
+const REWARDS = ["Un'uscita con papà, scelgo io dove","Trampoline park o parco avventura","Un attrezzo o un pallone nuovo","Scelgo io la cena per una settimana"];
+const REWARDS_ADULT = ["Un'uscita insieme, sceglie chi ha vinto","Una cena fuori","Un attrezzo nuovo","Una giornata tutta per me"];
+const TIMES = ['07:15','13:30','16:30','18:00','19:30','20:30'];
+const MOODS = [{m:5,e:'🤩',l:'Top'},{m:4,e:'🙂',l:'Bene'},{m:3,e:'😐',l:'Così così'},{m:2,e:'😕',l:'Mah'},{m:1,e:'😞',l:'Male'}];
+
+const LINES = [
+  'Una ripetizione oggi vale più di cento domani.', 'Per iniziare non serve la voglia: basta partire.', 'I campioni fanno le cose noiose anche quando nessuno guarda.',
+  'Oggi conta. Anche se è poco.', 'La fiamma chiede poco: solo di esserci tutti i giorni.', 'Tu contro te di ieri. Basta battere lui.',
+  'Ogni ripetizione è un voto per chi vuoi diventare.', 'Il divano non ha mai vinto una partita.', 'Due minuti. Poi decidi se continuare.',
+  'La voglia arriva dopo: parti e ti raggiunge.', 'Piccolo, ma tutti i giorni: così si diventa giganti.', 'Mai due di fila. Mai.',
+  'Il boss della settimana ti sta aspettando.', 'Fai la mini. Il resto è bonus.', 'Il te di domani ti ringrazierà.',
+  'Le scuse non danno XP.', 'Esserci batte essere perfetti.', 'Ogni leggenda ha iniziato al livello 1.',
+  'La catena cresce un anello alla volta.', 'Fatto batte perfetto.', 'Più forte di ieri, anche solo un pochino.',
+  'Il segreto? Ripetere.', 'Oggi alleni il muscolo più importante: la costanza.', 'Il tuo buddy cresce quando cresci tu.',
+  'Anche i giorni storti contano. Soprattutto quelli.', 'Metti la tua canzone. Parti.', 'Un campione è un principiante che ha continuato.',
+  'Si diventa forti un giorno alla volta.', 'Un\'altra goccia nel secchio: prima o poi trabocca.', 'Chi si allena oggi si diverte di più domani.',
+];
+const QUESTIONS = [
+  'Cosa ti ha fatto ridere oggi?', 'Una cosa che oggi ti è venuta bene?', 'Se oggi fosse un livello di un gioco, che voto gli daresti da 1 a 10? Perché?',
+  'Che superpotere ti sarebbe servito oggi?', 'Chi ti ha aiutato oggi? O chi hai aiutato tu?', 'Qual è stata la cosa più difficile di oggi?',
+  'Cosa vorresti saper fare tra un anno?', 'Cosa ti ha dato energia oggi? E cosa te l\'ha tolta?', 'Di cosa sei fiero questa settimana?',
+  'Se potessi insegnare una cosa a qualcuno, cosa sarebbe?', 'Che canzone ti carica di più in questo periodo?', 'Una cosa nuova che hai imparato oggi?',
+  'Cosa puoi fare domani per rendere la quest più facile?', 'Che consiglio daresti a un amico che non ha mai voglia di allenarsi?',
+];
+const MOOD_REPLY = {
+  5:['Che carica! Con questa energia la quest dura un attimo.','Grande! Oggi magari versione epica?'],
+  4:['Bene! Le giornate buone sono perfette per un voto in più.','Ottimo. Andiamo a prenderci la fiamma di oggi.'],
+  3:['Giornata normale? Perfetto: le abitudini si costruiscono proprio nei giorni normali.','Così così va bene. Basta la mini.'],
+  2:['Capita a tutti. Oggi niente pressione: se ti va fai la mini, se no domani.'],
+  1:['Mi dispiace. Se ti va, parlane con {chi}: dirlo ad alta voce aiuta.'],
+};
+const MOOD_REPLY_DONE = {
+  5:'Che carica! E la quest di oggi è già in tasca.', 4:'Bene! Giornata buona e quest già fatta.',
+  3:'Giornata normale, e la quest l\'hai fatta lo stesso: è così che si costruisce un\'abitudine.', 2:'Capita. Intanto la quest di oggi l\'hai fatta, e conta.',
+};
+const DONE_REPLY = ['Boom! Un altro voto per chi vuoi diventare.','Fatto! La fiamma ringrazia 🔥','Visto? Iniziare era la parte difficile.','Altro anello della catena. Domani ne aggiungiamo un altro.','Sento che sto crescendo… merito tuo.','Quest completata. Il boss trema.'];
+
+const BOSSES = [
+  {n:'Re Divano', e:'🛋️', tip:'Si batte rendendo facile partire: prepara il posto della quest prima.'},
+  {n:'Dottor Domani', e:'⏰', tip:'Lui dice «domani». Tu rispondi «due minuti adesso».'},
+  {n:'Lo Scroll Infinito', e:'📱', tip:'Prima la quest, poi lo schermo. Il telefono può aspettare.'},
+  {n:'Il Mostro della Noia', e:'🥱', tip:'Metti la tua canzone: la noia odia la musica.'},
+  {n:'Capitan Pigrone', e:'🦥', tip:'L\'energia arriva dopo aver iniziato: parti anche se sei scarico.'},
+  {n:'La Scusa Gigante', e:'🗿', tip:'Ogni scusa è grande da lontano e piccola da vicino.'},
+  {n:'Il Ladro di Tempo', e:'⌛', tip:'La mini dura meno di due minuti: non c\'è niente da rubare.'},
+];
+const BOSS_HP = 5;
+const bossOf = ws => BOSSES[((Math.round(dayIdx(ws)/7) % BOSSES.length) + BOSSES.length) % BOSSES.length];
+
+const BADGES = [
+  {id:'b1',  e:'👣', n:'Primo passo', d:'La tua prima quest.', g:10, ok:s=>s.total>=1},
+  {id:'s3',  e:'🔥', n:'Tripletta', d:'3 giorni di fiamma.', g:15, ok:s=>s.best>=3},
+  {id:'s7',  e:'📅', n:'Settimana di fuoco', d:'7 giorni di fiamma.', g:30, ok:s=>s.best>=7},
+  {id:'s14', e:'⚔️', n:'Due settimane', d:'14 giorni di fiamma.', g:40, ok:s=>s.best>=14},
+  {id:'s21', e:'🧱', n:'Tre settimane', d:'21 giorni di fiamma.', g:50, ok:s=>s.best>=21},
+  {id:'s30', e:'👑', n:'Mese leggendario', d:'30 giorni di fiamma.', g:100, ok:s=>s.best>=30},
+  {id:'s66', e:'🤖', n:'Pilota automatico', d:'66 giorni di fiamma: per molti è il punto in cui un\'abitudine diventa automatica.', g:200, ok:s=>s.best>=66},
+  {id:'s100',e:'💯', n:'Centurione', d:'100 giorni di fiamma.', g:300, ok:s=>s.best>=100},
+  {id:'t50', e:'🎯', n:'Cinquanta', d:'50 quest in totale.', g:60, ok:s=>s.total>=50},
+  {id:'ep5', e:'🦾', n:'Modalità bestia', d:'5 quest in versione epica.', g:30, ok:s=>s.epics>=5},
+  {id:'cb',  e:'🌅', n:'Rialzato', d:'Sei ripartito dopo una fiamma spenta. I campioni cadono e si rialzano.', g:25, ok:s=>s.comebacks>=1},
+  {id:'sh',  e:'🛡️', n:'Scudo alzato', d:'Uno scudo ha salvato la tua fiamma.', g:10, ok:s=>s.shieldsUsed>=1},
+  {id:'bo1', e:'⚔️', n:'Ammazzaboss', d:'Il tuo primo boss sconfitto.', g:20, ok:s=>s.bosses>=1},
+  {id:'bo4', e:'🐲', n:'Cacciatore di boss', d:'4 boss sconfitti.', g:60, ok:s=>s.bosses>=4},
+  {id:'md7', e:'📓', n:'Diario del guerriero', d:'7 check-in con il buddy.', g:20, ok:s=>s.moods>=7},
+  {id:'tm7', e:'🤝', n:'Squadra d\'acciaio', d:'7 giorni di fila in squadra.', g:50, ok:s=>s.teamBest>=7},
+  {id:'early',e:'🌄',n:'Mattiniero', d:'Una quest fatta fra le 5 e le 9 del mattino.', g:15, ok:s=>s.early>=1},
+  {id:'lv5', e:'⭐', n:'Guerriero', d:'Livello 5 raggiunto.', g:30, ok:s=>s.lv>=5},
+];
+const MILESTONES = [3,7,14,21,30,50,66,100,150,200,365];
+
+const CARDS = [
+  {e:'📈', t:'Il trucco dell\'1%', r:'c', x:'Migliorare dell\'1% al giorno per un anno ti rende circa 37 volte più bravo. Peggiorare dell\'1% al giorno ti porta quasi a zero. Piccolo, ma tutti i giorni: è così che si diventa giganti.'},
+  {e:'🗳️', t:'Ogni quest è un voto', r:'c', x:'Ogni volta che fai la tua quest voti per la persona che vuoi diventare. Non serve vincere tutte le elezioni: basta la maggioranza dei giorni.'},
+  {e:'⏱️', t:'La regola dei due minuti', r:'c', x:'Se non hai voglia, fai solo l\'inizio: due minuti. Iniziare è la parte difficile; quasi sempre poi continui da solo.'},
+  {e:'🔗', t:'Mai due di fila', r:'c', x:'Saltare un giorno è un incidente: capita anche ai campioni. Saltarne due di fila è l\'inizio di un\'abitudine nuova, quella sbagliata.'},
+  {e:'🔔', t:'Il segnale', r:'r', x:'Ogni abitudine parte da un segnale. Il tuo è: «{cue}». Più il segnale è chiaro, meno ti serve la forza di volontà.'},
+  {e:'🏠', t:'L\'ambiente vince', r:'c', x:'Chi ce la fa di solito ha meno ostacoli intorno. Lascia il tappetino steso o le scarpe in vista, e partire diventa automatico.'},
+  {e:'😴', t:'I muscoli crescono dormendo', r:'c', x:'L\'allenamento dà al corpo il segnale di rinforzarsi, ma il lavoro vero lo fa mentre riposi e dormi. Dormire bene fa parte dell\'allenamento.'},
+  {e:'🧠', t:'Il cervello ama muoversi', r:'c', x:'Muoversi porta più sangue e ossigeno al cervello. Dopo un po\' di movimento molti si concentrano meglio: provalo prima dei compiti.'},
+  {e:'🧊', t:'Il cubetto di ghiaccio', r:'r', x:'Scaldi il ghiaccio da −5 a −1 gradi e sembra non succedere niente. Poi a 0 si scioglie. I risultati arrivano così: in ritardo, tutti insieme. Non mollare a −1.'},
+  {e:'🏆', t:'Il sistema vince', r:'e', x:'Tutti vogliono vincere, anche chi perde. La differenza la fa l\'allenamento di tutti i giorni.'},
+  {e:'⚡', t:'La voglia arriva dopo', r:'c', x:'Spesso la voglia arriva dopo aver iniziato. Parti senza aspettarla: lei ti raggiunge.'},
+  {e:'❤️', t:'Il cuore è un muscolo', r:'c', x:'Allenandoti, il cuore diventa più forte: pompa più sangue a ogni battito e fa meno fatica.'},
+  {e:'🌬️', t:'Respira giusto', r:'c', x:'Durante lo sforzo butta fuori l\'aria quando spingi (per esempio quando risali nel piegamento). Trattenere il fiato ti fa stancare prima.'},
+  {e:'🎯', t:'Prima la tecnica', r:'c', x:'Meglio 5 ripetizioni fatte bene che 20 fatte male. Il movimento giusto protegge le articolazioni e fa crescere di più.'},
+  {e:'🤝', t:'Il compagno di squadra', r:'r', x:'Con un compagno si molla molto meno: è più difficile deludere un altro che deludere se stessi. Chiedi a {partner} com\'è andata oggi.'},
+  {e:'🎁', t:'Premio subito', r:'c', x:'Il cervello ripete quello che dà soddisfazione subito. Per questo qui ogni quest dà XP, gemme e un baule: il premio arriva adesso, mica tra un anno.'},
+  {e:'💧', t:'Acqua prima', r:'c', x:'Anche un po\' di sete fa sentire stanchi e meno concentrati. Un bicchiere d\'acqua prima della quest è un piccolo power-up.'},
+  {e:'🥣', t:'Né troppo facile, né troppo difficile', r:'c', x:'Le sfide più divertenti stanno nel mezzo. Quando la quest diventa noiosa, alzala di poco: un passo alla volta.'},
+  {e:'⛓️', t:'Non spezzare la catena', r:'c', x:'Vedere la fila dei giorni fatti ti fa venire voglia di non spezzarla. Per questo i giochi hanno le streak: adesso ce l\'hai anche tu.'},
+  {e:'🦸', t:'Chi sei', r:'e', x:'Le abitudini più forti diventano parte di chi sei. «Sono uno che si allena» tiene molto più di «devo fare piegamenti».'},
+  {e:'🐜', t:'Inizia ridicolo', r:'c', x:'Nei giorni no basta la mini: tiene viva la catena. Un giorno a zero la fa diventare brace, due di fila la spengono. Il minimo batte sempre il niente.'},
+  {e:'🚫', t:'Al contrario', r:'c', x:'Per smettere una cattiva abitudine fai il contrario: rendila invisibile, difficile e noiosa. Esempio: il telefono di notte in un\'altra stanza.'},
+  {e:'🧘', t:'Stretching alla fine', r:'c', x:'I muscoli caldi si allungano meglio. Lo stretching rende di più alla fine dell\'allenamento che a freddo.'},
+  {e:'📆', t:'66 giorni', r:'r', x:'In uno studio inglese (Lally e colleghi, 2010) di solito ci sono voluti circa 66 giorni perché un\'abitudine diventasse automatica: per qualcuno solo 18, per altri più di 200. E saltare un giorno ogni tanto non rovinava niente. Il tempo giusto è il tuo.'},
+  {e:'🐢', t:'Lo specchio è lento', r:'r', x:'Il corpo cambia piano e lo specchio se ne accorge per ultimo. La catena dei giorni invece la vedi subito: guarda quella.'},
+  {e:'😊', t:'Muoversi mette di buonumore', r:'c', x:'Quando ti muovi il corpo produce sostanze che migliorano l\'umore. Nei giorni storti anche due minuti possono aiutare.'},
+  {e:'➕', t:'Ancora una', r:'c', x:'Quando hai finito, fanne UNA in più. Una sola. È così che il limite si sposta, piano piano.'},
+  {e:'🛌', t:'Anche il riposo conta', r:'c', x:'Anche i campioni hanno giorni leggeri. Qui il giorno leggero è la versione mini: fai quella e la fiamma resta accesa.'},
+  {e:'👹', t:'Dai un nome alle scuse', r:'e', x:'Ogni scusa è un boss: Re Divano, Dottor Domani. Quando le dai un nome la riconosci, e riconoscerla è metà della vittoria.'},
+  {e:'🌟', t:'Tu contro te di ieri', r:'l', x:'Confrontati con te di ieri, lascia stare gli altri. Se oggi sei un po\' meglio di ieri, hai vinto.'},
+];
+const RAR = {c:'Comune', r:'Rara', e:'Epica', l:'Leggendaria'};
+const cardAt = i => i < 10 ? i + 1 : 10 + (i - 9) * 3;     // quest a cui si sblocca la carta i
+const cardsFor = total => CARDS.filter((_, i) => cardAt(i) <= total).length;
+
+const SHOP = [
+  {id:'shield',      e:'🛡️', n:'Scudo', d:'Salva la fiamma quando salti il secondo giorno di fila. Ne puoi tenere 3.', cost:60, kind:'shield'},
+  {id:'cap',         e:'🧢', n:'Cappellino', cost:40, kind:'hat'},
+  {id:'phones',      e:'🎧', n:'Cuffie da allenamento', cost:90, kind:'hat'},
+  {id:'tophat',      e:'🎩', n:'Cilindro da boss', cost:160, kind:'hat'},
+  {id:'crown',       e:'👑', n:'Corona', cost:400, kind:'hat'},
+  {id:'aura-fire',   e:'🔥', n:'Aura di fuoco', cost:200, kind:'aura'},
+  {id:'aura-bolt',   e:'⚡', n:'Aura elettrica', cost:200, kind:'aura'},
+  {id:'aura-rainbow',e:'🌈', n:'Aura arcobaleno', cost:500, kind:'aura'},
+  {id:'lava',        e:'🌋', n:'Tema Lava', cost:120, kind:'theme'},
+  {id:'ocean',       e:'🌊', n:'Tema Oceano', cost:120, kind:'theme'},
+  {id:'jungle',      e:'🌴', n:'Tema Giungla', cost:120, kind:'theme'},
+  {id:'gold',        e:'🏆', n:'Tema Oro', cost:450, kind:'theme'},
+  {id:'gift',        e:'🎁', n:'Regalo per il buddy', d:'Lo rende felicissimo. Puoi regalarglielo tutte le volte che vuoi.', cost:50, kind:'gift'},
+];
+const shopItem = (id, kind) => SHOP.find(s => s.id === id && (!kind || s.kind === kind));
+
+/* ---------- firma (tracciato vettoriale) ---------- */
+const SIG_RE = /^data:image\/png;base64,[A-Za-z0-9+/=]+$/;
+function validSigv(v){
+  if (!v || !Number.isFinite(v.w) || !Number.isFinite(v.h) || !Array.isArray(v.s)) return false;
+  let n = 0;
+  for (const st of v.s) { if (!Array.isArray(st) || st.length % 2) return false; n += st.length; if (st.some(x => !Number.isFinite(x))) return false; }
+  return n <= 8000;
+}
+function sigHTML(p){
+  if (p.sigv && validSigv(p.sigv)) {
+    const d = p.sigv.s.map(st => st.length === 2 ? `M${st[0]} ${st[1]}l.1 .1` : 'M' + st.map((x, i) => (i % 2 ? ' ' : (i ? 'L' : '')) + Math.round(x)).join('')).join('');
+    return `<svg class="sig" viewBox="0 0 ${Math.round(p.sigv.w)} ${Math.round(p.sigv.h)}" role="img" aria-label="Firma"><path d="${d}" fill="none" stroke="#1b1640" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  }
+  if (p.sig && SIG_RE.test(p.sig)) return `<img class="sig" src="${esc(p.sig)}" alt="Firma">`;
+  return '';
+}
+
+/* ---------- stato ---------- */
+function load(){ try { return JSON.parse(localStorage.getItem(KEY)); } catch(e) { return null; } }
+let S = load() || {};
+function norm(){
+  S.v = 1; S.profile ||= null; S.ev ||= []; S.eq ||= {}; S.set ||= {sound:true}; S.ui ||= {}; S.ui.tab ||= 'home'; S.ui.seen ||= 0;
+  if (S.profile && typeof cleanState === 'function') {
+    // anche i dati già salvati passano dalla stessa pulizia dell'import; i flag locali dell'interfaccia restano
+    try { const ui = S.ui; S = cleanState(S); for (const k of ['noInstall','safariOk','goldiNo','tab']) if (ui[k] !== undefined) S.ui[k] = ui[k]; } catch(e) {}
+  }
+  const h = S.profile?.habit;
+  if (h) { if (h.emoji === '\u{1FAA2}') h.emoji = '🦘'; if (!h.one && HABITS[h.key]) h.one = HABITS[h.key].one; }
+  for (const k of ['hat','aura','theme']) if (S.eq[k] && !shopItem(S.eq[k], k)) delete S.eq[k];
+}
+norm();
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e) { toast('⚠️ Non riesco a salvare su questo dispositivo.'); } }
+async function keepData(){ try { if (navigator.storage?.persist && !(await navigator.storage.persisted())) await navigator.storage.persist(); } catch(e) {} }
+
+/* ---------- motore del gioco ---------- */
+function calc(){
+  const T = today();
+  const done = new Map(), buys = new Map(), team = new Set(), moodDays = new Set(), ansDays = new Set(), owned = new Set(), awarded = new Set();
+  let chestG = 0, bonusXP = 0, spent = 0, early = 0, gifts = 0;
+  for (const e of S.ev) {
+    switch (e.t) {
+      case 'done': done.set(e.d, e); break;
+      case 'mood': moodDays.add(e.d); break;
+      case 'answer': if (!e.skip) ansDays.add(e.d); break;
+      case 'chest': chestG += e.g || 0; break;
+      case 'bonus': bonusXP += e.xp || 0; break;
+      case 'team': team.add(e.d); break;
+      case 'award': awarded.add(e.id); break;
+      case 'buy': spent += e.cost || 0;
+        if (e.item === 'shield') buys.set(e.d, (buys.get(e.d) || 0) + 1); else if (e.item === 'gift') gifts++; else owned.add(e.item); break;
+    }
+  }
+  for (const e of done.values()) if (e.ts) { const hh = new Date(e.ts).getHours(); if (hh >= 5 && hh < 9) early++; }
+  let xp = bonusXP + moodDays.size*5 + ansDays.size*5;
+  let chain = 0, best = 0, gap = 0, earned = 0, bought = 0, shieldsUsed = 0, total = 0, epics = 0, comebacks = 0, broken = false, lastKillWs = null;
+  let teamChain = 0, teamBest = 0;
+  const weekHits = new Map(), bossWeeks = new Set(), shielded = new Set(), missed = new Set();
+  const keys = [...done.keys(), ...buys.keys()].sort();
+  const start = keys.length ? keys[0] : T;
+  for (let d = start; d <= T; d = addD(d, 1)) {
+    const b = buys.get(d); if (b) bought = Math.min(3 - earned, bought + b);
+    const e = done.get(d);
+    if (e) {
+      if (broken) { comebacks++; broken = false; }
+      gap = 0; chain++; total++; if (e.epic) epics++;
+      xp += (e.epic ? 25 : 10) + Math.min(10, Math.floor(chain/7));
+      if (chain % 7 === 0 && earned < 2 && earned + bought < 3) earned++;
+      if (chain > best) best = chain;
+      const ws = weekStart(d), prev = weekHits.get(ws) || 0, hit = prev + (e.epic ? 2 : 1);
+      weekHits.set(ws, hit);
+      if (prev < BOSS_HP && hit >= BOSS_HP) { bossWeeks.add(ws); xp += 50; lastKillWs = ws; }
+      if (team.has(d)) { teamChain++; xp += 5; teamBest = Math.max(teamBest, teamChain); } else if (d < T) teamChain = 0;
+    } else if (d < T) {
+      missed.add(d); teamChain = 0;
+      if (chain > 0) {
+        gap++;
+        if (gap >= 2) {
+          if (earned + bought > 0) { if (earned) earned--; else bought--; shieldsUsed++; shielded.add(d); missed.delete(d); gap--; }
+          else { chain = 0; gap = 0; broken = true; }
+        }
+      }
+    }
+  }
+  const L = levelOf(xp);
+  const stats = {total, best, epics, comebacks, shieldsUsed, bosses:bossWeeks.size, moods:moodDays.size, teamBest, early, lv:L.lv};
+  const badgesNow = BADGES.filter(x => x.ok(stats)).map(x => x.id);
+  const bossNow = [...bossWeeks].map(w => 'boss:' + w);
+  const badges = new Set([...badgesNow, ...[...awarded].filter(id => BADGES.some(b => b.id === id))]);
+  const bossIds = new Set([...bossNow, ...[...awarded].filter(id => id.startsWith('boss:'))]);
+  const gems = chestG + BADGES.filter(x => badges.has(x.id)).reduce((a, x) => a + x.g, 0) + bossIds.size*40 - spent;
+  const doneToday = done.get(T) || null;
+  const ws = weekStart(T);
+  return {
+    T, done, doneToday, chain, best, gap, shields:earned + bought, shieldsUsed, total, epics, comebacks, bosses:bossWeeks.size, lastKillWs, xp, ...L,
+    stage: stageOf(L.lv), rank: rankOf(L.lv), gems, owned, gifts, badges, awarded, pending:[...badgesNow, ...bossNow].filter(id => !awarded.has(id)),
+    stats, shielded, missed, start,
+    brace: !doneToday && chain > 0 && gap === 1, dead: chain === 0 && total > 0,
+    weekHits: weekHits.get(ws) || 0, ws, boss: bossOf(ws),
+    team, teamToday: team.has(T), teamChain, teamBest,
+    moodToday: S.ev.find(e => e.t === 'mood' && e.d === T) || null,
+    ansToday: S.ev.find(e => e.t === 'answer' && e.d === T) || null,
+    chestToday: S.ev.find(e => e.t === 'chest' && e.d === T) || null,
+    cards: cardsFor(total),
+  };
+}
+
+/* ---------- suoni ---------- */
+let AC = null;
+function tone(seq){
+  if (!S.set.sound) return;
+  try {
+    if (AC && AC.state === 'closed') AC = null;
+    AC ||= new (window.AudioContext || window.webkitAudioContext)();
+    if (AC.state !== 'running') AC.resume().catch(() => {});
+    const t0 = AC.currentTime + 0.02;
+    for (const [f, st, du, type='square', vol=0.05] of seq) {
+      const o = AC.createOscillator(), g = AC.createGain();
+      o.type = type; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t0+st); g.gain.exponentialRampToValueAtTime(vol, t0+st+0.012); g.gain.exponentialRampToValueAtTime(0.0001, t0+st+du);
+      o.connect(g).connect(AC.destination); o.start(t0+st); o.stop(t0+st+du+0.03);
+    }
+  } catch(e) {}
+}
+const SND = {
+  tap:[[660,0,.05,'sine',.03]],
+  done:[[523,0,.11],[659,.09,.11],[784,.18,.11],[1047,.27,.28]],
+  level:[[392,0,.14],[523,.14,.14],[659,.28,.14],[784,.42,.14],[1047,.56,.45],[1319,.56,.45,'triangle',.03]],
+  chest:[[880,0,.08,'triangle'],[1175,.08,.08,'triangle'],[1568,.16,.25,'triangle']],
+  boss:[[196,0,.12,'sawtooth',.04],[147,.12,.12,'sawtooth',.04],[523,.3,.12],[784,.42,.3]],
+};
+
+/* ---------- coriandoli ---------- */
+const fx = {c:$('#fx'), parts:[], on:false};
+function sizeFx(){ const d = devicePixelRatio || 1; fx.c.width = innerWidth*d; fx.c.height = innerHeight*d; fx.ctx = fx.c.getContext('2d'); fx.ctx.setTransform(d,0,0,d,0,0); }
+addEventListener('resize', sizeFx); sizeFx();
+function confetti(n=120, emo=null){
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const cols = ['#ffc23d','#ff7a1a','#7c5cff','#3ddc84','#4cc3ff','#ff5a7a'];
+  for (let i = 0; i < n; i++) fx.parts.push({x:innerWidth/2 + (Math.random()-.5)*80, y:innerHeight*.42, vx:(Math.random()-.5)*13, vy:-Math.random()*15-4, r:Math.random()*6, s:6+Math.random()*7, c:pick(cols), e:emo && Math.random()<.35 ? pick(emo) : null, l:0});
+  if (!fx.on) { fx.on = true; requestAnimationFrame(fxStep); }
+}
+function fxStep(){
+  const x = fx.ctx; x.clearRect(0,0,innerWidth,innerHeight);
+  fx.parts = fx.parts.filter(p => p.l < 160 && p.y < innerHeight + 40);
+  for (const p of fx.parts) {
+    p.l++; p.vy += .38; p.vx *= .985; p.x += p.vx; p.y += p.vy; p.r += .1;
+    x.save(); x.translate(p.x, p.y); x.rotate(p.r);
+    if (p.e) { x.font = '22px serif'; x.fillText(p.e, -11, 8); } else { x.fillStyle = p.c; x.fillRect(-p.s/2, -p.s/4, p.s, p.s/2); }
+    x.restore();
+  }
+  if (fx.parts.length) requestAnimationFrame(fxStep); else { fx.on = false; x.clearRect(0,0,innerWidth,innerHeight); }
+}
+function floatXP(txt, rect){
+  const r = rect || {left:innerWidth/2, width:0, top:innerHeight/2};
+  const f = document.createElement('div'); f.className = 'floatxp'; f.textContent = txt;
+  f.style.left = (r.left + r.width/2) + 'px'; f.style.top = (r.top - 10) + 'px';
+  document.body.appendChild(f); setTimeout(() => f.remove(), 1200);
+}
+
+/* ---------- anti doppio tocco ---------- */
+let guardUntil = 0;
+const guard = ms => { guardUntil = Math.max(guardUntil, performance.now() + ms); };
+const guarded = () => performance.now() < guardUntil;
+
+/* ---------- modali e toast ---------- */
+const MQ = []; let mOpen = false, lastFocus = null;
+function showModal(html, opt={}){ MQ.push({html, opt}); if (!mOpen) nextModal(); }
+function setInert(v){ for (const id of ['app','tabs']) { const el = document.getElementById(id); if (el) el.inert = v; } }
+function nextModal(){
+  const m = $('#modal'); const it = MQ.shift();
+  if (!it) {
+    const was = mOpen; mOpen = false; m.hidden = true; m.innerHTML = ''; setInert(false);
+    if (was && lastFocus && document.contains(lastFocus)) lastFocus.focus({preventScroll:true});
+    return;
+  }
+  if (!mOpen) lastFocus = document.activeElement;
+  mOpen = true; m.hidden = false; m.innerHTML = it.html; m._opt = it.opt; guard(500); setInert(true);
+  it.opt.onShow?.(m);
+  const mc = $('.mc', m); if (mc) { mc.tabIndex = -1; setTimeout(() => mc.focus({preventScroll:true}), 30); }
+}
+function closeModal(){
+  const o = $('#modal')._opt || {}; o.onClose?.(); nextModal();
+  if (!mOpen && !W && S.profile) render();
+}
+$('#modal').addEventListener('click', e => { if (e.target.id === 'modal' && !guarded() && !($('#modal')._opt || {}).sticky) closeModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && mOpen && !($('#modal')._opt || {}).sticky) closeModal(); });
+function toast(msg, onClick){
+  const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
+  if (onClick) {
+    t.setAttribute('role', 'button'); t.tabIndex = 0;
+    t.onclick = () => { t.remove(); onClick(); };
+    t.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); t.onclick(); } };
+  }
+  $('#toasts').appendChild(t); setTimeout(() => t.remove(), 4200);
+}
+
+/* ---------- testi dinamici ---------- */
+const P_ = () => S.profile;
+const isAdult = () => P_()?.age === 'Adulto';
+const pname = () => esc(cap1(P_().name));
+const buddyEmoji = st => BUDDIES[P_().buddy].stages[st];
+const buddyStageName = st => BUDDIES[P_().buddy].names[st];
+const confidant = () => isAdult() ? 'una persona di cui ti fidi' : 'mamma, papà o un adulto di cui ti fidi (per esempio un docente)';
+const helpHTML = () => isAdult()
+  ? 'Se preferisci parlarne con qualcuno fuori casa: <a href="tel:143">143</a> (Telefono Amico), gratis, giorno e notte.'
+  : 'Se preferisci parlarne con qualcuno fuori casa: <a href="tel:147">147</a> (Pro Juventute), gratis e confidenziale, giorno e notte, anche in chat su <a href="https://www.147.ch/it/" target="_blank" rel="noopener">147.ch</a>.';
+function fillCard(x){ return x.replace('{cue}', lc1(P_().cue)).replace('{partner}', P_().partner || 'un amico'); }
+function greet(){ const h = now().getHours(); return h < 12 ? 'Buongiorno' : h < 18 ? 'Ciao' : 'Buonasera'; }
+const questLine = () => qty(P_().habit.mini, P_().habit);
+const qFor = (T, m) => m && m <= 2 ? 'Vuoi scrivere cosa è successo oggi? Resta su questo dispositivo.' : byDay(QUESTIONS, T);
+function lowStreak(c){
+  const last = S.ev.filter(e => e.t === 'mood' && e.m).sort((a, b) => a.d < b.d ? -1 : 1).slice(-3);
+  return last.length === 3 && last.every(e => e.m <= 2) && daysBetween(last[0].d, c.T) <= 3 && last[2].d === c.T;
+}
+function moodReply(c, m){
+  if (c.doneToday && m >= 2) return MOOD_REPLY_DONE[m];
+  if (c.brace && m === 2) return 'Capita a tutti. Oggi niente pressione: basta la mini, anche piccolissima, e la fiamma resta viva.';
+  let r = byDay(MOOD_REPLY[m] || MOOD_REPLY[3], c.T).replace('{chi}', confidant());
+  if (m === 1 && !lowStreak(c)) r += ' ' + helpHTML();
+  return r;
+}
+
+function bubbleText(c){
+  const p = P_(), name = pname(), line = byDay(LINES, c.T);
+  if (c.total === 0) return `Eccomi, ${name}! 🎉 Ora la tua prima quest: <b>${esc(questLine())}</b>. Adesso, finché sei carico.`;
+  if (c.doneToday) {
+    if (c.total === 1) return `PRIMA QUEST FATTA! È la più importante di tutte: adesso sei ufficialmente in gioco.`;
+    let r = byDay(DONE_REPLY, c.T);
+    if (c.weekHits >= BOSS_HP && /boss/i.test(r)) r = DONE_REPLY[0];
+    return p.partner && !c.teamToday ? `${r} Hai chiesto a ${esc(p.partner)} se ha fatto la sua?` : r;
+  }
+  if (c.moodToday?.m && c.moodToday.m <= 2) return `Oggi niente pressione, ${name}. Se ti va la mini, bene; se no, domani.`;
+  const why = WHYS.find(w => w[0] === (p.why || [])[0]);
+  if (c.brace) return `Ieri la fiamma è rimasta senza legna. Oggi la riaccendi? Mai due di fila! ${why ? `Ricordati perché lo fai: <i>${esc(lc1(why[1]))}</i>.` : ''}`;
+  if (c.dead) return `La fiamma si è spenta, ma niente drammi: i campioni ripartono. Fai la mini e accendine una nuova.`;
+  return `${greet()}, ${name}! ${c.weekHits >= BOSS_HP && /boss/i.test(line) ? LINES[0] : line}`;
+}
+
+/* ---------- rendering principale ---------- */
+const app = $('#app');
+let W = null, WI = 0;        // wizard
+let draft = null;            // risposta del giorno non ancora inviata (solo in memoria)
+let diaryAll = false;
+let shownDay = null;
+let justBought = {id:null, until:0};   // appena comprato: niente «Togli» sotto il dito per 1,5 s
+function render(){
+  document.body.dataset.theme = S.eq.theme || '';
+  const tc = getComputedStyle(document.body).getPropertyValue('--bg').trim();
+  $('meta[name=theme-color]').content = tc || '#13112b';
+  shownDay = today();
+  if (!S.profile && !W) {
+    if (isIOS() && !isStandalone() && !S.ui.safariOk) { renderGate(); return; }
+    startWizard();
+  }
+  if (W) { renderWizard(); return; }
+  document.body.classList.remove('wz');
+  const c = calc();
+  persistAwards(c);
+  const views = {home:viewHome, cards:viewCards, trophies:viewTrophies, shop:viewShop, me:viewMe};
+  app.innerHTML = (views[S.ui.tab] || viewHome)(c);
+  if (S.ui.tab === 'cards' && S.ui.seen < c.cards) { S.ui.seen = c.cards; save(); }
+  renderTabs(c);
+  const sh = [...c.shielded].sort().pop();
+  if (sh && sh !== S.ui.shSeen) {
+    S.ui.shSeen = sh; save();
+    if (sh === addD(c.T, -1) && c.chain > 0) toast('🛡️ Uno scudo ha salvato la tua fiamma!');
+  }
+}
+function persistAwards(c){
+  if (!c.pending.length) return;
+  c.pending.forEach(id => S.ev.push({t:'award', d:c.T, id}));
+  const silent = !S.ui.awardInit; S.ui.awardInit = 1; save();
+  if (silent) return;
+  c.pending.map(id => BADGES.find(b => b.id === id)).filter(Boolean)
+    .forEach(x => toast(`${x.e} Trofeo: ${x.n} · +${x.g} 💎`, () => { S.ui.tab = 'trophies'; save(); render(); scrollTo(0, 0); }));
+}
+function renderTabs(c){
+  const t = $('#tabs'); t.hidden = false;
+  const items = [['home','🏠','Quest'],['cards','🃏','Carte'],['trophies','🏆','Trofei'],['shop','💎','Shop'],['me','👤','Io']];
+  t.firstElementChild.innerHTML = items.map(([k,e,l]) => `<button class="${S.ui.tab===k?'on':''}" data-act="tab" data-v="${k}" aria-label="${l}"><span aria-hidden="true">${e}</span>${l}${k==='cards' && c.cards > S.ui.seen ? '<i class="dot"></i>' : ''}</button>`).join('');
+}
+function topbar(c){
+  return `<div class="topbar">
+    <span class="pill lv">LV ${c.lv}</span><span class="grow"></span>
+    <span class="pill" aria-label="gemme">💎 ${c.gems}</span><span class="pill" aria-label="scudi">🛡️ ${c.shields}</span>
+    <button class="iconbtn" data-act="help" aria-label="Come funziona">❓</button>
+  </div>
+  <div class="xp"><div class="bar"><i style="width:${Math.round(100*c.into/c.need)}%"></i></div><div class="lbl"><span>${c.rank} · XP ${c.into} / ${c.need}</span><span>→ LV ${c.lv+1}</span></div></div>`;
+}
+function buddyHTML(c, size){
+  const hat = shopItem(S.eq.hat, 'hat')?.e || '';
+  const aura = shopItem(S.eq.aura, 'aura') ? S.eq.aura : '';
+  return `<button class="buddy ${aura} bob" data-act="poke" aria-label="${esc(P_().buddyName)}" ${size?`style="font-size:${+size}px"`:''}>${hat?`<span class="hat">${hat}</span>`:''}${buddyEmoji(c.stage)}</button>`;
+}
+
+function renderGate(){
+  document.body.classList.add('wz'); $('#tabs').hidden = true;
+  app.innerHTML = `<div class="gate">
+    <div class="hero"><img src="apple-touch-icon.png" width="96" height="96" alt=""></div>
+    <h1 class="center">Prima installala sull'iPhone</h1>
+    <p>Level Up diventa un'app vera dalla schermata Home: a schermo intero, anche senza rete, e con la partita al sicuro.</p>
+    <ol>
+      <li>Tocca <b>•••</b> in basso a destra, poi <b>Condividi</b>. (Se vedi già il quadrato con la freccia in su, tocca quello.)</li>
+      <li>Scorri e scegli <b>Aggiungi alla schermata Home</b>. Se c'è l'interruttore «Apri come app web», lascialo acceso, poi tocca <b>Aggiungi</b>.</li>
+      <li>Apri <b>Level Up</b> dall'icona 🔥 sulla Home e inizia da lì.</li>
+    </ol>
+    <p class="small muted">Perché prima? Sull'iPhone l'app sulla Home e Safari hanno memorie separate: se inizi qui, la partita resta in Safari. E Safari può cancellare i dati di un sito che non apri per 7 giorni.</p>
+    <button class="link" data-act="safariok">Gioco qui in Safari lo stesso</button></div>`;
+}
+
+function viewHome(c){
+  const p = P_(), h = p.habit, T = c.T, y = addD(T, -1);
+  let out = topbar(c);
+  out += `<div class="buddy-zone">${buddyHTML(c)}<div class="bname">${esc(p.buddyName)} · ${buddyStageName(c.stage)}${c.gifts ? ` · ❤️ ${c.gifts} ${c.gifts === 1 ? 'regalo' : 'regali'}` : ''}</div><div class="bubble">${bubbleText(c)}</div></div>`;
+  if (isIOS() && !isStandalone() && !S.ui.noInstall) out += `<div class="banner small"><b>📲 Mettila nella schermata Home</b> per usarla come un'app vera. L'app sulla Home parte vuota: prima copia la partita da Io → Salva partita.<div class="btns"><button class="btn" data-act="install">Come si fa</button><button class="btn ghost" data-act="noinstall">Dopo</button></div></div>`;
+  if (!S.ui.remindDone && c.total > 0) out += `<div class="banner small"><b>⏰ Il promemoria non è ancora attivo.</b> Bastano 30 secondi.<div class="btns"><button class="btn" data-act="remind">Attivalo</button><button class="btn ghost" data-act="noremind">No grazie</button></div></div>`;
+  else if (S.ui.remindDone === 1 && S.ui.remindAt && S.ui.remindAt !== p.remind) out += `<div class="banner small"><b>⏰ Hai cambiato l'ora:</b> aggiorna il promemoria (togli quello delle ${esc(S.ui.remindAt)} e metti quello delle ${esc(p.remind)}).<div class="btns"><button class="btn" data-act="remind">Aggiorna</button></div></div>`;
+
+  // quest
+  const bonus = Math.min(10, Math.floor((c.chain + 1) / 7));
+  out += `<div class="card quest"><div class="row"><div class="qe">${esc(h.emoji)}</div><div class="grow"><div class="label">La quest di oggi</div><div class="qt">${esc(questLine())}</div><div class="small muted">${esc(p.cue)}, ${esc(p.place)}</div></div></div>`;
+  if (!c.doneToday) {
+    out += `<button class="btn ok big ${c.total===0?'pulse':''}" data-act="done">✅ FATTO! <small>+${10 + bonus} XP</small></button>
+            <button class="btn gold" data-act="done" data-epic="1">💪 Epica: ${esc(qty(h.epic, h))} <small>+${25 + bonus} XP</small></button>`;
+  } else {
+    out += `<div class="donebox">✔ Quest completata${c.doneToday.epic ? ' in versione EPICA 💪' : ''}</div>`;
+  }
+  const g14 = goldiReady(c);
+  if (g14) out += `<div class="banner"><b>🆙 Sei pronto per alzare la quest?</b><div class="small">${g14} quest su 14 negli ultimi giorni: ormai è facile. Vuoi passare da ${esc(qty(h.mini, h))} a ${esc(qty(nextMini(h.mini), h))}? Decidi tu.</div><div class="btns"><button class="btn gold" data-act="goldi" data-v="1">Sì, alzo</button><button class="btn ghost" data-act="goldi" data-v="0">Resto così</button></div></div>`;
+  if (!c.done.has(y) && p.created <= y && c.total > 0) out += `<button class="link" data-act="yesterday">Ieri l'avevi fatta ma non l'hai segnata?</button>`;
+  if (c.doneToday) out += `<button class="link" data-act="undo">Annulla (ho premuto per sbaglio)</button>`;
+  out += `</div>`;
+
+  // baule
+  if (c.doneToday && !c.chestToday) out += `<div class="card chest-card"><div class="row"><div class="ce shake">🎁</div><div class="grow"><b>Baule del giorno!</b><div class="small muted">Dentro ci sono gemme. Quante? Sorpresa.</div></div></div><button class="btn gold" data-act="chest">Apri il baule</button></div>`;
+
+  // fiamma
+  const fcls = c.doneToday ? '' : c.dead || c.total === 0 ? 'off' : c.brace ? 'ember' : 'wait';
+  let st, warn = false;
+  if (c.doneToday) st = '🔥 Fiamma accesa per oggi. Ci vediamo domani!';
+  else if (c.total === 0) st = 'Fai la prima quest per accendere la fiamma.';
+  else if (c.dead) st = 'Fiamma spenta. Si riparte da 1: oggi.';
+  else if (c.brace && c.shielded.has(y)) {
+    let n = 0; for (let d = y; c.shielded.has(d); d = addD(d, -1)) n++;
+    warn = true; st = `🛡️ Hai saltato ${n + 1} giorni: ${n > 1 ? `${n} scudi hanno` : 'uno scudo ha'} salvato la fiamma. Fai la quest oggi${c.shields ? '.' : ', altrimenti domani si spegne.'}`;
+  }
+  else if (c.brace) { warn = true; st = `⚠️ Ieri hai saltato: la fiamma è brace. Fai la quest oggi e si riaccende. ${c.shields ? `Hai ${c.shields} ${c.shields > 1 ? 'scudi' : 'scudo'} di riserva, ma meglio non ${c.shields > 1 ? 'usarli' : 'usarlo'}.` : 'Se salti anche oggi, si spegne.'}`; }
+  else st = 'La fiamma aspetta la quest di oggi, entro mezzanotte.';
+  const next = MILESTONES.find(m => m > c.chain);
+  const wk = ['L','M','M','G','V','S','D'].map((l,i) => {
+    const d = addD(c.ws, i), e = c.done.get(d);
+    const cls = e ? (e.epic ? 'epic' : 'done') : c.shielded.has(d) ? 'shield' : (d < T && d >= c.start && c.missed.has(d)) ? 'miss' : '';
+    const sym = e ? (e.epic ? '💪' : '✓') : c.shielded.has(d) ? '🛡️' : cls === 'miss' ? '·' : '';
+    return `<div class="wd ${cls} ${d===T?'today':''}">${l}<b>${sym}</b></div>`;
+  }).join('');
+  out += `<div class="card"><div class="row"><div class="flame ${fcls}">🔥</div><div class="grow"><div class="snum">${c.chain}</div><div class="small muted">${c.chain===1?'giorno':'giorni'} di fiamma · record ${c.best}</div></div><div class="center"><div style="font-size:1.8rem">🛡️</div><b>×${c.shields}</b></div></div>
+    <div class="state ${warn?'warn':''}">${st}</div><div class="week">${wk}</div>
+    ${next ? `<div class="small dim" style="margin-top:8px">Prossimo traguardo: <b>${next} giorni di fiamma</b> (${next - c.chain === 1 ? 'ne manca 1' : `ne mancano ${next - c.chain}`})</div>` : ''}</div>`;
+
+  // check-in
+  if (!c.moodToday) {
+    out += `<div class="card"><b>${esc(p.buddyName)}:</b> come stai oggi, ${pname()}?<div class="moods">${MOODS.map(m => `<button data-act="mood" data-v="${m.m}" aria-label="${m.l}">${m.e}<span>${m.l}</span></button>`).join('')}</div><div class="small dim" style="margin-top:6px">+5 XP · non va su internet, resta su questo dispositivo</div></div>`;
+  } else if (!c.ansToday) {
+    const m = c.moodToday.m;
+    out += `<div class="card"><div class="say">${moodReply(c, m)}</div><b>${m && m <= 2 ? 'Se ti va:' : 'Domanda del giorno:'}</b> ${qFor(c.T, m)}<textarea class="txt" id="ans" maxlength="3000" placeholder="Scrivi quello che vuoi: non va su internet, resta su questo dispositivo">${esc(draft?.d === c.T ? draft.a : '')}</textarea><button class="btn" data-act="answer">Salva nel diario <small>+5 XP</small></button><button class="link" data-act="skipq">Oggi passo</button></div>`;
+  }
+  if (c.moodToday && lowStreak(c)) out += `<div class="card care"><b>💬 Sono un po' di giorni che non stai bene.</b><p class="small">Fammi un favore: dillo oggi a ${confidant()}. Non devi spiegare tutto: basta «non sto tanto bene».</p><p class="small">${helpHTML()}</p></div>`;
+
+  // boss
+  const hp = Math.max(0, BOSS_HP - c.weekHits), dead = hp === 0, left = 7 - dow(T);
+  out += `<div class="card"><div class="row"><div class="boss-e ${dead?'dead':''}">${c.boss.e}</div><div class="grow"><div class="label">Boss della settimana</div><b style="font-size:1.2rem">${c.boss.n}</b><div class="hp" aria-label="${hp} cuori su ${BOSS_HP}">${'❤️'.repeat(hp)}${'🖤'.repeat(BOSS_HP-hp)}</div></div></div>
+    <div class="small muted" style="margin-top:6px">${dead ? '💥 Sconfitto! +50 XP e +40 💎. Lunedì arriva il prossimo.' : `Colpiscilo ${BOSS_HP} volte entro domenica: ogni quest è 1 colpo, l'epica 2. ${left === 1 ? 'Ultimo giorno!' : `Restano ${left} giorni.`}`}</div>
+    <div class="tip small">💡 ${c.boss.tip}</div></div>`;
+
+  // squadra
+  if (p.partner) {
+    out += `<div class="card"><div class="row"><div style="font-size:2.2rem">🤝</div><div class="grow"><b>Squadra con ${esc(p.partner)}</b><div class="small muted">Serie di squadra: ${c.teamChain} · record ${c.teamBest}</div></div></div>
+      ${c.teamToday ? `<div class="donebox small">✔ ${esc(p.partner)} ha fatto la sua oggi</div><button class="link" data-act="unteam">Annulla</button>` : `<button class="btn ghost" data-act="team">${esc(p.partner)} ha fatto la sua quest oggi ✓</button>`}
+      <div class="small dim" style="margin-top:6px">Giorno di squadra = la quest l'avete fatta tutti e due (+5 XP).</div></div>`;
+  }
+  return out;
+}
+function nextMini(m){ return Math.max(m + 1, Math.round(m * 1.2)); }
+function goldiReady(c){
+  const h = P_().habit;
+  if (c.total < 14) return 0;
+  if (daysBetween(h.changed || P_().created, c.T) < 14) return 0;
+  if (S.ui.goldiNo && daysBetween(S.ui.goldiNo, c.T) < 7) return 0;
+  let n = 0; for (let i = 0; i < 14; i++) if (c.done.has(addD(c.T, -i))) n++;
+  return n >= 12 ? n : 0;
+}
+
+function viewCards(c){
+  const out = CARDS.map((k,i) => i < c.cards
+    ? `<button class="kc r-${k.r}" data-act="card" data-v="${i}">${i >= S.ui.seen ? '<span class="new">NEW</span>' : ''}<span class="ke">${k.e}</span>${k.t}</button>`
+    : `<div class="kc locked"><div class="ke">❔</div>Alla quest n. ${cardAt(i)}</div>`).join('');
+  const all = c.cards === CARDS.length;
+  const head = all
+    ? `<p class="muted">Collezione completa: ${CARDS.length}/${CARDS.length}! 🏆</p><button class="btn gold" data-act="card" data-v="${((dayIdx(c.T) % CARDS.length) + CARDS.length) % CARDS.length}">🃏 Carta del giorno</button>`
+    : `<p class="muted">Trucchi da campione e cose vere su corpo e cervello. Le prime 10 quest sbloccano una carta ciascuna, poi ne arriva una ogni 3 quest. ${c.cards}/${CARDS.length} sbloccate.</p>`;
+  return `${topbar(c)}<h2>🃏 Carte Sapere</h2>${head}<div class="grid3" style="margin-top:12px">${out}</div>`;
+}
+function viewTrophies(c){
+  const T = c.T, start = addD(weekStart(T), -77);
+  let cells = '';
+  for (let i = 0; i < 84; i++) {
+    const d = addD(start, i), e = c.done.get(d);
+    const cls = d > T ? 'future' : e ? (e.epic ? 'epic' : 'done') : c.shielded.has(d) ? 'shield' : (d < T && d >= c.start) ? 'miss' : '';
+    cells += `<i class="${cls} ${d===T?'today':''}" title="${fmtDate(d)}"></i>`;
+  }
+  const b = BADGES.map(x => `<button class="badge ${c.badges.has(x.id)?'':'locked'}" data-act="badge" data-v="${x.id}"><span class="be">${x.e}</span>${x.n}</button>`).join('');
+  return `${topbar(c)}<h2>🏆 Trofei</h2>
+  <div class="stats"><div class="stat"><b>${c.best}</b><span>RECORD</span></div><div class="stat"><b>${c.total}</b><span>QUEST</span></div><div class="stat"><b>${c.epics}</b><span>EPICHE</span></div><div class="stat"><b>${c.bosses}</b><span>BOSS</span></div><div class="stat"><b>${c.shieldsUsed}</b><span>SCUDI USATI</span></div><div class="stat"><b>${c.badges.size}/${BADGES.length}</b><span>TROFEI</span></div></div>
+  <div class="card"><b>⛓️ La catena · ultime 12 settimane</b><div class="heat">${cells}</div>
+  <div class="legend"><span><i style="background:var(--fire)"></i>fatta</span><span><i style="background:var(--gold)"></i>epica</span><span><i style="background:var(--blue)"></i>scudo</span><span><i class="miss"></i>saltata</span></div></div>
+  <div class="grid3">${b}</div>`;
+}
+function viewShop(c){
+  const rows = SHOP.map(s => {
+    const own = !['shield','gift'].includes(s.kind) && c.owned.has(s.id);
+    const on = S.eq[s.kind] === s.id;
+    let btn;
+    if (s.kind === 'shield') btn = `<button class="btn gold" data-act="buy" data-v="${s.id}" ${c.gems < s.cost || c.shields >= 3 ? 'disabled' : ''}>💎 ${s.cost}</button>`;
+    else if (s.kind === 'gift' || !own) btn = `<button class="btn gold" data-act="buy" data-v="${s.id}" ${c.gems < s.cost ? 'disabled' : ''}>💎 ${s.cost}</button>`;
+    else if (on && justBought.id === s.id && performance.now() < justBought.until) btn = `<span class="inuse">✓ In uso</span>`;
+    else btn = on ? `<button class="btn ghost" data-act="unequip" data-v="${s.kind}">Togli</button>` : `<button class="btn" data-act="equip" data-v="${s.id}">Usa</button>`;
+    return `<div class="shop-item"><div class="se">${s.e}</div><div class="grow"><b>${s.n}</b>${s.d ? `<div class="small muted">${s.d}</div>` : own ? `<div class="small muted">${on ? 'In uso' : 'Nello zaino'}</div>` : ''}</div>${btn}</div>`;
+  }).join('');
+  return `${topbar(c)}<div class="buddy-zone">${buddyHTML(c, 96)}</div><h2>💎 Shop</h2><p class="muted small">Le gemme arrivano dai bauli, dai boss e dai trofei. Niente soldi veri, mai.</p><div class="card">${rows}</div>`;
+}
+function viewMe(c){
+  const p = P_();
+  const all = S.ev.filter(e => (e.t === 'mood' && e.m) || (e.t === 'answer' && !e.skip && e.a)).slice().reverse();
+  const list = diaryAll ? all : all.slice(0, 40);
+  const dia = list.map(e =>
+    e.t === 'mood' ? `<div class="diary small"><span class="dim">${fmtDate(e.d)}</span> · umore ${MOODS.find(m => m.m === e.m)?.e || ''}</div>`
+                   : `<div class="diary small"><span class="dim">${fmtDate(e.d)}</span> · <i>${esc(e.q)}</i><br>${esc(e.a)}</div>`).join('');
+  const goals = (p.goals || []).map(g => GOALS.find(x => x[0] === g)?.[1]).filter(Boolean);
+  if (p.goalOther) goals.push('✍️ ' + p.goalOther);
+  return `${topbar(c)}<h2>👤 ${pname()}</h2>
+  <div class="card"><b>🎯 I miei obiettivi</b><ul>${goals.map(g => `<li>${esc(g)}</li>`).join('')}</ul>
+   <b>💡 Perché</b><ul>${(p.why || []).map(w => `<li>${esc(WHYS.find(x => x[0] === w)?.[1] || w)}</li>`).join('')}</ul>
+   ${p.reward ? `<b>👑 Premio dei 30 giorni di fiamma</b><div class="muted">${esc(p.reward)}</div>` : ''}
+   <button class="btn gold" data-act="pact">📜 Il mio patto</button></div>
+  <div class="card menu">
+   <button class="btn ghost" data-act="editquest">✏️ Cambia i numeri della quest</button>
+   <button class="btn ghost" data-act="remind">⏰ Promemoria</button>
+   <button class="btn ghost" data-act="savegame">💾 Salva partita / altro dispositivo</button>
+   <button class="btn ghost" data-act="install">📲 Installa l'app</button>
+   <button class="btn ghost" data-act="sound">${S.set.sound ? '🔊 Suoni attivi' : '🔇 Suoni spenti'}</button>
+   <button class="btn ghost" data-act="rewizard">🔁 Rifai il patto</button>
+  </div>
+  <div class="card"><details><summary>📓 Diario (tocca per aprire)</summary>
+   <div class="small dim">Non va su internet: resta su questo dispositivo.</div>${dia || '<p class="muted small">Ancora vuoto: fai il check-in con il buddy.</p>'}
+   ${all.length > 40 && !diaryAll ? `<button class="link" data-act="diaryall">Mostra tutto (${all.length})</button>` : ''}</details>
+   ${isAdult() ? '' : `<p class="small dim" style="margin-top:10px">Se qualcosa ti pesa e vuoi parlarne con qualcuno fuori casa: <a href="tel:147">147</a> (Pro Juventute), gratis e confidenziale, anche in chat su <a href="https://www.147.ch/it/" target="_blank" rel="noopener">147.ch</a>.</p>`}</div>
+  <p class="small dim center">Level Up ${VERSION} · idee prese da «Atomic Habits» di James Clear<br><button class="link" data-act="reset" style="color:var(--bad)">Cancella tutto</button></p>`;
+}
+
+/* ---------- azioni ---------- */
+function mutate(fn){
+  const a = calc(); fn(); save(); const b = calc(); render(); celebrate(a, b); return b;
+}
+function celebrate(a, b){
+  if (b.lv > a.lv) {
+    const evo = b.stage > a.stage;
+    tone(SND.level); confetti(180, ['⭐','✨']);
+    showModal(`<div class="mc"><div class="lvup">LEVEL UP!</div><p class="muted">Livello <b>${b.lv}</b> · ${b.rank}</p>
+      ${evo ? `<div class="big-emoji pop">${buddyEmoji(b.stage)}</div><h2>${esc(P_().buddyName)} si è evoluto!</h2><p>${buddyEmoji(a.stage)} → ${buddyEmoji(b.stage)} <b>${buddyStageName(b.stage)}</b></p>` : `<div class="big-emoji pop">${buddyEmoji(b.stage)}</div>`}
+      ${b.stage < 3 ? `<p class="small dim">Prossima evoluzione al livello ${[2,5,10][b.stage]}.</p>` : ''}
+      <button class="btn gold" data-act="close">Vai così! ▶</button></div>`);
+  }
+  if (b.bosses > a.bosses && b.lastKillWs && !a.awarded.has('boss:' + b.lastKillWs)) {
+    const bb = bossOf(b.lastKillWs);
+    tone(SND.boss);
+    showModal(`<div class="mc"><div class="big-emoji pop">💥</div><h2>BOSS SCONFITTO!</h2><p>${bb.e} <b>${bb.n}</b> è a terra. +50 XP e +40 💎.</p><p class="small muted">${b.lastKillWs === b.ws ? 'Lunedì arriva un boss nuovo.' : 'Era il boss della settimana scorsa: battuto all\'ultimo!'}</p><button class="btn gold" data-act="close">GG</button></div>`);
+  }
+  if (b.cards > a.cards) { const i = b.cards - 1; toast(`🃏 Nuova carta: ${CARDS[i].t} (tocca)`, () => openCard(i)); }
+}
+function openCard(i){
+  const k = CARDS[i];
+  showModal(`<div class="mc"><span class="rar r-${k.r}">${RAR[k.r]}</span><div class="big-emoji" style="font-size:80px">${k.e}</div><h2>${k.t}</h2><p>${esc(fillCard(k.x))}</p><button class="btn" data-act="close">Ok</button></div>`);
+}
+function openChest(){
+  const c = calc(); if (!c.doneToday || c.chestToday) return;
+  const r = Math.random(), g = r < .05 ? 60 : r < .3 ? 16 + Math.floor(Math.random()*15) : 5 + Math.floor(Math.random()*11);
+  S.ev.push({t:'chest', d:c.T, g}); save();
+  tone([[300,0,.08,'triangle'],[340,.25,.08,'triangle'],[380,.5,.08,'triangle']]);
+  showModal(`<div class="mc"><div class="big-emoji shake" id="ch">🎁</div><h2 id="cht">Apertura…</h2><div id="chm"></div></div>`, {sticky:true, onShow(m){
+    setTimeout(() => {
+      if (!$('#ch', m)) return;
+      $('#ch', m).className = 'big-emoji pop'; $('#ch', m).textContent = '💎';
+      $('#cht', m).textContent = g >= 60 ? 'JACKPOT! +60 gemme' : `+${g} gemme!`;
+      $('#chm', m).innerHTML = `<p class="muted">${g >= 60 ? 'Baule leggendario: succede una volta ogni tanto.' : 'Le spendi nello Shop 💎'}</p><button class="btn gold" data-act="close">Grande!</button>`;
+      tone(SND.chest); confetti(g >= 60 ? 220 : 90, ['💎','✨']);
+    }, 1100);
+  }});
+  render();
+}
+function helpModal(){
+  showModal(`<div class="mc left"><h2>❓ Come funziona</h2>
+  <p><b>✅ Quest:</b> la fai e premi FATTO. La versione mini (+10 XP) basta sempre; l'epica vale +25 XP e 2 colpi al boss.</p>
+  <p><b>🔥 Fiamma:</b> conta i giorni con la quest fatta. Se salti un giorno diventa brace; si spegne solo se salti <b>due giorni di fila</b>.</p>
+  <p><b>🛡️ Scudi:</b> ne guadagni uno ogni 7 giorni di fiamma, fino a tenerne 2 (3 se li compri nello Shop). Si usano da soli quando salti il secondo giorno di fila.</p>
+  <p><b>⭐ Livelli:</b> l'XP ti fa salire di livello e il buddy si evolve ai livelli 2, 5 e 10. Ogni 7 giorni di fiamma, ogni quest vale 1 XP in più (fino a +10).</p>
+  <p><b>👹 Boss:</b> ogni settimana un boss nuovo con 5 cuori. Ogni quest è un colpo, l'epica due. Battuto entro domenica: +50 XP e +40 💎.</p>
+  <p><b>🎁 Baule:</b> uno al giorno dopo la quest. Gemme a sorpresa da spendere nello Shop.</p>
+  <p><b>🃏 Carte:</b> le prime 10 quest sbloccano una carta ciascuna, poi una ogni 3, con un trucco da campione.</p>
+  <p><b>🙂 Check-in:</b> come stai +5 XP, risposta nel diario +5 XP, giorno di squadra +5 XP.</p>
+  <button class="btn" data-act="close">Capito</button></div>`);
+}
+const INSTALL_STEPS = `<ol><li>Apri questa pagina con <b>Safari</b>.</li><li>Tocca <b>•••</b> in basso a destra, poi <b>Condividi</b>. (Se vedi già il quadrato con la freccia in su, tocca quello.)</li><li>Scorri e scegli <b>Aggiungi alla schermata Home</b>. Se c'è l'interruttore «Apri come app web», lascialo acceso, poi tocca <b>Aggiungi</b>.</li><li>Da ora aprila dall'icona 🔥 sulla Home.</li></ol>`;
+function installModal(){
+  const playingInSafari = isIOS() && !isStandalone() && S.profile;
+  showModal(`<div class="mc left"><h2>📲 Installa Level Up</h2>
+  ${playingInSafari ? '<p><b>Prima di tutto:</b> l\'app sulla Home parte vuota, Safari non le passa i dati. Copia la partita, poi nell\'app tocca «Ho già una partita» e incollala. Il codice contiene tutta la partita, diario compreso: incollalo solo nell\'app.</p><button class="btn gold" data-act="copyall">📋 Copia la partita</button>' : ''}
+  <p><b>iPhone</b></p>${INSTALL_STEPS}
+  <p><b>PC o Mac</b></p><ol><li>Apri la pagina con <b>Chrome</b> o Edge.</li><li>Clicca l'icona <b>Installa</b> a destra nella barra dell'indirizzo.</li></ol>
+  <p class="small muted">I progressi stanno sul dispositivo dove giochi. Per passarli da uno all'altro: Io → Salva partita.</p>
+  <button class="btn" data-act="close">Ok</button></div>`);
+}
+function remindModal(){
+  const p = P_(), hm = (TIMES.includes(p.remind) ? p.remind : '18:00').replace(':', '');
+  const changed = S.ui.remindDone && S.ui.remindAt && S.ui.remindAt !== p.remind;
+  const ios = isIOS();
+  const steps = `<ol><li>Apri l'app <b>Promemoria</b> e crea un promemoria: «🔥 ${esc(questLine())}».</li><li>Tocca ⓘ, attiva <b>Data</b> e <b>Ora</b> (${esc(p.remind)}).</li><li>In <b>Ripeti</b> scegli <b>Ogni giorno</b>.</li></ol>`;
+  showModal(`<div class="mc left"><h2>⏰ Promemoria</h2>
+  <p class="muted small">Il promemoria più forte è il tuo segnale: «${esc(p.cue)}». Questo è un rinforzo, ogni giorno alla stessa ora.</p>
+  <h3>A che ora?</h3><div class="chips">${TIMES.map(t => `<button class="chip ${p.remind===t?'on':''}" data-act="remindtime" data-v="${t}">${t}</button>`).join('')}</div>
+  ${changed ? `<p class="small"><b>Hai cambiato ora:</b> prima togli quello vecchio delle ${esc(S.ui.remindAt)} (nel Calendario: aprilo → Elimina evento → Elimina tutti gli eventi futuri; nei Promemoria: scorri a sinistra → Elimina).</p>` : ''}
+  ${ios ? `<p><b>Il modo più sicuro sull'iPhone: l'app Promemoria</b></p>${steps}` : ''}
+  <a class="btn" href="promemoria/${hm}.ics" target="_blank" rel="noopener noreferrer">📅 Aggiungi al Calendario (ogni giorno alle ${esc(p.remind)})</a>
+  <p class="small dim">${ios ? 'Se si apre l\'anteprima, tocca «Aggiungi». Se parte un download, tocca la freccia dei download di Safari e poi il file. Se non succede niente, usa l\'app Promemoria qui sopra. ' : 'Si scarica un file: aprilo con Outlook o con il Calendario. '}Se ti chiede quale calendario, scegline uno solo tuo. Quando è attivo, torna qui e tocca il bottone sotto.</p>
+  ${ios ? '' : `<details><summary>Hai un iPhone? Con l'app Promemoria</summary>${steps}</details>`}
+  <button class="btn gold" data-act="reminddone">✓ Fatto, il promemoria è attivo</button>
+  <button class="btn ghost" data-act="close">Chiudi</button></div>`);
+}
+function b64e(str){ const u = new TextEncoder().encode(str); let bin = ''; for (let i = 0; i < u.length; i += 0x8000) bin += String.fromCharCode(...u.subarray(i, i + 0x8000)); return btoa(bin); }
+function b64d(s){ const bin = atob(s.replace(/\s+/g, '')); return new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0))); }
+function exportState(noDiary){
+  const o = JSON.parse(JSON.stringify(S));
+  if (noDiary) o.ev = o.ev.map(e => e.t === 'answer' && !e.skip ? {t:'answer', d:e.d, q:'', a:''} : e.t === 'mood' ? {t:'mood', d:e.d} : e);
+  o.ui = {seen:S.ui.seen, awardInit:S.ui.awardInit, remindDone:S.ui.remindDone, remindAt:S.ui.remindAt, shSeen:S.ui.shSeen};
+  return o;
+}
+const saveCode = noDiary => 'LVLUP1:' + b64e(JSON.stringify(exportState(noDiary)));
+function cleanState(o){
+  if (!o || typeof o !== 'object' || !o.profile || typeof o.profile !== 'object' || !Array.isArray(o.ev)) throw new Error('forma');
+  const p = o.profile, str = (v, n) => String(v ?? '').slice(0, n);
+  if (!Object.hasOwn(BUDDIES, p.buddy) || !p.habit || typeof p.habit !== 'object' || Array.isArray(p.habit) || !isDay(p.created)) throw new Error('profilo');
+  const h = p.habit;
+  h.key = str(h.key, 20); if (!Object.hasOwn(HABITS, h.key)) h.key = 'altro'; h.mini = Math.max(1, parseInt(h.mini) || 1); h.epic = Math.max(h.mini + 1, parseInt(h.epic) || h.mini * 3);
+  h.unit = str(h.unit || 'ripetizioni', 40); h.label = str(h.label, 40); h.one = h.one ? str(h.one, 40) : HABITS[h.key]?.one;
+  h.emoji = HABITS[h.key]?.emoji || '⭐'; if (!isDay(h.changed)) h.changed = p.created;
+  p.name = str(p.name, 20); p.buddyName = str(p.buddyName || BUDDIES[p.buddy].def, 16);
+  for (const k of ['identity','cue','place','song','partner','partnerKind','reward','goalOther','age']) p[k] = str(p[k], 80);
+  p.goals = (Array.isArray(p.goals) ? p.goals : []).filter(g => GOALS.some(x => x[0] === g));
+  p.why = (Array.isArray(p.why) ? p.why : []).filter(g => WHYS.some(x => x[0] === g));
+  p.obstacles = (Array.isArray(p.obstacles) ? p.obstacles : []).filter(k => OBST[k]);
+  p.bundle = !!p.bundle; if (!TIMES.includes(p.remind)) p.remind = '18:00';
+  if (p.sig && !SIG_RE.test(p.sig)) p.sig = null;
+  if (p.sigv && !validSigv(p.sigv)) p.sigv = null;
+  if (p.signed && !isDay(p.signed)) p.signed = p.created;
+  const int = (v, lo, hi) => Math.max(lo, Math.min(hi, parseInt(v) || 0));
+  o.ev = o.ev.filter(e => e && typeof e === 'object' && isDay(e.d)).map(e => {
+    switch (e.t) {
+      case 'done': return {t:'done', d:e.d, epic:!!e.epic, ts:Number.isFinite(e.ts) ? e.ts : null, late:!!e.late};
+      case 'mood': return [1,2,3,4,5].includes(+e.m) ? {t:'mood', d:e.d, m:+e.m} : {t:'mood', d:e.d};
+      case 'answer': return {t:'answer', d:e.d, q:str(e.q, 200), a:str(e.a, 3000), skip:!!e.skip};
+      case 'chest': return {t:'chest', d:e.d, g:int(e.g, 0, 60)};
+      case 'bonus': return {t:'bonus', d:e.d, xp:int(e.xp, 0, 60), why:str(e.why, 20)};
+      case 'team': return {t:'team', d:e.d};
+      case 'award': return {t:'award', d:e.d, id:str(e.id, 30)};
+      case 'buy': { const s = shopItem(e.item); return s ? {t:'buy', d:e.d, item:s.id, cost:s.cost} : null; }
+      default: return null;
+    }
+  }).filter(Boolean);
+  const eq = {}; for (const k of ['hat','aura','theme']) if (o.eq && shopItem(o.eq[k], k)) eq[k] = o.eq[k];
+  o.eq = eq; o.set = {sound: o.set?.sound !== false};
+  const u = o.ui || {};
+  o.ui = {tab:'home', seen:int(u.seen, 0, CARDS.length), awardInit:u.awardInit ? 1 : 0, remindDone:u.remindDone === 'no' ? 'no' : u.remindDone ? 1 : 0,
+          remindAt:TIMES.includes(u.remindAt) ? u.remindAt : undefined, shSeen:isDay(u.shSeen) ? u.shSeen : undefined};
+  o.v = 1;
+  return o;
+}
+function loadState(text){
+  const v = String(text || '').trim();
+  const o = cleanState(v.startsWith('LVLUP1:') ? JSON.parse(b64d(v.slice(7))) : JSON.parse(v));
+  const prev = S, prevW = W;
+  S = o; norm(); W = null;
+  try {
+    const c = calc(); viewHome(c); viewMe(c); viewTrophies(c); viewShop(c); pactHTML(S.profile);
+    startWizard(S.profile); STEPS.forEach(s => s.html()); W = null;   // anche «Rifai il patto» deve reggere
+    if (!S.ui.shSeen) { const sh = [...c.shielded].sort().pop(); if (sh) S.ui.shSeen = sh; }
+  }
+  catch (err) { S = prev; W = prevW; throw err; }
+  draft = null; diaryAll = false;
+  save(); render(); keepData();
+}
+function saveModal(){
+  showModal(`<div class="mc left"><h2>💾 Salva partita</h2>
+  <p class="small muted">Per giocare su un altro dispositivo (PC ↔ iPhone): copia il codice, mandalo <b>a te stesso</b> (AirDrop, una mail a te, «Messaggi a te stesso») e di là incollalo in «Ho già una partita» o in «Carica partita».</p>
+  <p class="small"><b>Attenzione:</b> il codice contiene tutta la partita: nome, patto con la firma, umori e diario. Chi lo ha può leggerlo.</p>
+  <label class="check small"><input type="checkbox" id="nodiary"> Togli il diario dal codice (umori e risposte restano qui)</label>
+  <textarea class="txt" id="code" readonly></textarea>
+  <button class="btn" data-act="copycode">📋 Copia il codice</button>
+  <button class="btn ghost" data-act="savefile">⬇️ Scarica una copia di sicurezza (file)</button>
+  <h3>Carica partita</h3><textarea class="txt" id="incode" placeholder="Incolla qui il codice LVLUP1:…"></textarea>
+  <input type="file" id="infile" accept=".json,.txt,application/json,text/plain" aria-label="Carica da file">
+  <button class="btn gold" data-act="loadcode">Carica (sostituisce questa partita)</button>
+  <button class="btn ghost" data-act="close">Chiudi</button></div>`, {onShow(m){
+    const fill = () => { $('#code', m).value = saveCode($('#nodiary', m).checked); };
+    fill(); $('#nodiary', m).onchange = fill;
+    // qui c'è già una partita: il file riempie solo il riquadro, a sostituire è il bottone dorato
+    $('#infile', m).onchange = async ev => { const f = ev.target.files[0]; if (f) { $('#incode', m).value = (await f.text()).trim(); toast(`File pronto: ${f.name}. Tocca «Carica» per usarlo.`); } ev.target.value = ''; };
+  }});
+}
+function loadOnlyModal(){
+  showModal(`<div class="mc left"><h2>📥 Ho già una partita</h2>
+  <p class="small muted">Incolla il codice LVLUP1:… che ti sei mandato, oppure scegli il file di salvataggio.</p>
+  <textarea class="txt" id="incode" placeholder="Incolla qui il codice LVLUP1:…"></textarea>
+  <input type="file" id="infile" accept=".json,.txt,application/json,text/plain" aria-label="Carica da file">
+  <button class="btn gold" data-act="loadcode">Carica la partita</button>
+  <button class="btn ghost" data-act="close">Annulla</button></div>`, {onShow(m){
+    $('#infile', m).onchange = async ev => { const f = ev.target.files[0]; ev.target.value = ''; if (f) { $('#incode', m).value = (await f.text()).trim(); ACT.loadcode(); } };
+  }});
+}
+function editQuestModal(){
+  const h = P_().habit; let mini = h.mini, epic = h.epic;
+  const draw = m => { $('#mv', m).textContent = mini; $('#ev', m).textContent = epic; $('#qsave', m).disabled = !(mini >= 1 && epic > mini); };
+  showModal(`<div class="mc"><h2>✏️ I numeri della quest</h2><p class="small muted">${esc(h.emoji)} ${esc(h.unit)}</p>
+   <h3>Mini (tutti i giorni)</h3><div class="stepper"><button data-q="m-" aria-label="meno">−</button><b id="mv"></b><button data-q="m+" aria-label="più">+</button></div>
+   <h3>Epica (giorni da campione)</h3><div class="stepper"><button data-q="e-" aria-label="meno">−</button><b id="ev"></b><button data-q="e+" aria-label="più">+</button></div>
+   <p class="small dim">Regola d'oro: la mini deve restare facile. Se salti spesso, abbassala: i campioni adattano il piano e vanno avanti.</p>
+   <button class="btn gold" id="qsave">Salva</button><button class="btn ghost" data-act="close">Annulla</button></div>`, {onShow(m){
+     draw(m);
+     m.querySelectorAll('[data-q]').forEach(b => b.onclick = () => {
+       const q = b.dataset.q, step = v => v >= 30 ? 5 : 1;
+       if (q === 'm-') mini = Math.max(1, mini - step(mini - 1)); if (q === 'm+') mini += step(mini);
+       if (q === 'e-') epic = Math.max(2, epic - step(epic - 1)); if (q === 'e+') epic += step(epic);
+       tone(SND.tap); draw(m);
+     });
+     $('#qsave', m).onclick = () => { if (!(mini >= 1 && epic > mini)) return; Object.assign(P_().habit, {mini, epic, changed: mini !== h.mini ? today() : h.changed}); save(); closeModal(); toast('Quest aggiornata ✓'); };
+   }});
+}
+function resetModal(){
+  showModal(`<div class="mc"><h2>⚠️ Cancella tutto</h2><p>Spariscono patto, fiamma, livelli e diario da questo dispositivo. Non si torna indietro.</p><p class="small muted">Scrivi <b>CANCELLA</b> per confermare.</p><input class="txt" id="rc" autocomplete="off"><button class="btn" style="background:var(--bad);box-shadow:0 5px 0 #b02a48" data-act="doreset">Cancella tutto</button><button class="btn ghost" data-act="close">No, torna indietro</button></div>`);
+}
+async function copyText(text, ok){
+  try { await navigator.clipboard.writeText(text); toast(ok); return true; } catch(e) { return false; }
+}
+
+const ACT = {
+  close: closeModal,
+  tab: el => { S.ui.tab = el.dataset.v; save(); render(); scrollTo(0,0); },
+  help: helpModal, install: installModal,
+  noinstall: () => { S.ui.noInstall = 1; save(); render(); },
+  noremind: () => { S.ui.remindDone = 'no'; save(); render(); toast('Ok. Lo trovi in Io → Promemoria.'); },
+  safariok: () => { S.ui.safariOk = 1; save(); render(); },
+  done: el => {
+    const epic = el.dataset.epic === '1', r = el.getBoundingClientRect();
+    if (calc().doneToday) return;
+    const b = mutate(() => S.ev.push({t:'done', d:today(), epic, ts:Date.now()}));
+    tone(SND.done); confetti(epic ? 200 : 120, epic ? ['💪','🔥'] : ['🔥']);
+    floatXP(`+${(epic ? 25 : 10) + Math.min(10, Math.floor(b.chain/7))} XP`, r);
+    if (b.chain >= 2 && MILESTONES.includes(b.chain)) toast(`🔥 ${b.chain} giorni di fiamma!`);
+    keepData();
+  },
+  undo: () => showModal(`<div class="mc"><h2>Annullo la quest di oggi?</h2><p class="small muted">Serve solo se hai premuto FATTO per sbaglio.</p><button class="btn" data-act="undook">Sì, annulla</button><button class="btn ghost" data-act="close">No, l'ho fatta</button></div>`),
+  undook: () => { const T = today(); MQ.length = 0; $('#modal')._opt = {}; nextModal(); S.ev = S.ev.filter(e => !(e.t === 'done' && e.d === T)); save(); render(); toast('Annullata. Nessun problema.'); },
+  yesterday: () => showModal(`<div class="mc"><h2>Ieri l'avevi fatta?</h2><p>Segnala solo se è vero: il gioco funziona se è onesto. Il baule di ieri però è perso.</p><button class="btn ok" data-act="yesok">Sì, l'avevo fatta</button><button class="btn ghost" data-act="close">No</button></div>`),
+  yesok: () => {
+    const y = addD(today(), -1);
+    MQ.length = 0; $('#modal')._opt = {}; nextModal();
+    if (S.ev.some(e => e.t === 'done' && e.d === y)) return render();
+    mutate(() => S.ev.push({t:'done', d:y, epic:false, ts:null, late:true})); tone(SND.done);
+  },
+  chest: openChest,
+  mood: el => { if (calc().moodToday) return; mutate(() => S.ev.push({t:'mood', d:today(), m:+el.dataset.v})); tone(SND.tap); },
+  answer: () => {
+    const a = ($('#ans')?.value || '').trim(); if (!a) { toast('Scrivi qualcosa, anche due parole 🙂'); return; }
+    const c = calc(); if (c.ansToday) return;
+    const q = qFor(c.T, c.moodToday?.m);
+    draft = null; mutate(() => S.ev.push({t:'answer', d:c.T, q, a})); toast('Salvato nel tuo diario ✓');
+  },
+  skipq: () => { if (calc().ansToday) return; draft = null; mutate(() => S.ev.push({t:'answer', d:today(), skip:true})); },
+  team: () => { if (calc().teamToday) return; mutate(() => S.ev.push({t:'team', d:today()})); tone(SND.tap); },
+  unteam: () => showModal(`<div class="mc"><h2>Tolgo il giorno di squadra?</h2><button class="btn" data-act="unteamok">Sì, togli</button><button class="btn ghost" data-act="close">No</button></div>`),
+  unteamok: () => { const T = today(); MQ.length = 0; $('#modal')._opt = {}; nextModal(); S.ev = S.ev.filter(e => !(e.t === 'team' && e.d === T)); save(); render(); },
+  card: el => openCard(+el.dataset.v),
+  badge: el => {
+    const x = BADGES.find(b => b.id === el.dataset.v), c = calc(), got = c.badges.has(x.id);
+    const extra = x.id === 's30' && !isAdult() ? `<p class="small">${P_().reward ? `Il tuo premio: <b>${esc(P_().reward)}</b>` : 'Il premio non l\'avete ancora deciso: decidetelo insieme.'}</p>` : '';
+    showModal(`<div class="mc"><div class="big-emoji" style="font-size:72px;${got ? '' : 'filter:grayscale(1);opacity:.5'}">${x.e}</div><h2>${x.n}</h2><p>${x.d}</p>${extra}<p class="small muted">${got ? `Sbloccato · +${x.g} 💎` : `Ancora bloccato · vale ${x.g} 💎`}</p><button class="btn" data-act="close">Ok</button></div>`);
+  },
+  buy: el => {
+    const s = shopItem(el.dataset.v), c = calc();
+    if (!s) return;
+    if (c.gems < s.cost) return toast('Non hai abbastanza gemme 💎');
+    if (s.kind === 'shield' && c.shields >= 3) return toast('Hai già 3 scudi, il massimo.');
+    if (!['shield','gift'].includes(s.kind) && c.owned.has(s.id)) return;
+    justBought = {id:s.id, until:performance.now() + 1500};
+    mutate(() => { S.ev.push({t:'buy', d:today(), item:s.id, cost:s.cost}); if (!['shield','gift'].includes(s.kind)) S.eq[s.kind] = s.id; });
+    tone(SND.chest);
+    if (s.kind === 'gift') { confetti(90, ['❤️','💖','🎁']); toast(`❤️ ${P_().buddyName} è felicissimo!`); }
+    else { confetti(60, [s.e]); toast(`Nuovo nello zaino: ${s.e} ${s.n}`); }
+    setTimeout(() => { if (S.ui.tab === 'shop' && !mOpen) render(); }, 1600);
+  },
+  equip: el => { const s = shopItem(el.dataset.v); if (!s || !calc().owned.has(s.id)) return; S.eq[s.kind] = s.id; save(); render(); tone(SND.tap); },
+  unequip: el => { if (['hat','aura','theme'].includes(el.dataset.v)) delete S.eq[el.dataset.v]; save(); render(); },
+  poke: el => { tone(SND.tap); el.classList.remove('bob'); el.classList.add('pop'); setTimeout(() => { el.classList.remove('pop'); el.classList.add('bob'); }, 600); toast(`${P_().buddyName}: ${pick(LINES)}`); },
+  goldi: el => {
+    if (el.dataset.v === '1') { const h = P_().habit; h.mini = nextMini(h.mini); h.epic = Math.max(h.epic, Math.ceil(h.mini * 1.5)); h.changed = today(); save(); render(); confetti(80); toast(`🆙 Nuova mini: ${qty(h.mini, h)}`); }
+    else { S.ui.goldiNo = today(); save(); render(); toast('Ok, resti così. Decidi tu.'); }
+  },
+  pact: () => showModal(`<div class="mc">${pactHTML(P_())}<button class="btn" data-act="close">Chiudi</button></div>`),
+  editquest: editQuestModal, remind: remindModal,
+  remindtime: el => { if (!TIMES.includes(el.dataset.v)) return; P_().remind = el.dataset.v; save(); MQ.length = 0; $('#modal')._opt = {}; nextModal(); remindModal(); },
+  reminddone: () => { S.ui.remindDone = 1; S.ui.remindAt = P_().remind; save(); closeModal(); toast('⏰ Promemoria attivo ✓'); },
+  savegame: saveModal,
+  saveimport: loadOnlyModal,
+  copyall: async () => { if (!(await copyText(saveCode(false), 'Partita copiata ✓'))) { closeModal(); saveModal(); } },
+  copycode: async () => { const t = $('#code'); if (!(await copyText(t.value, 'Codice copiato ✓'))) { t.select(); toast('Seleziona e copia il codice'); } },
+  savefile: async () => {
+    const name = `level-up-${today()}.json`, text = JSON.stringify(exportState($('#nodiary')?.checked));
+    if (isIOS()) {
+      try { const f = new File([text], name, {type:'application/json'}); if (navigator.canShare?.({files:[f]})) { await navigator.share({files:[f]}); return; } }
+      catch(e) { if (e.name === 'AbortError') return; }
+    }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], {type:'application/json'})); a.download = name;
+    document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 60000);
+  },
+  loadcode: () => {
+    const v = $('#incode')?.value;
+    try { loadState(v); MQ.length = 0; $('#modal')._opt = {}; nextModal(); render(); scrollTo(0,0); toast('Partita caricata ✓'); }
+    catch(e) { toast('Codice o file non valido: copialo tutto, da LVLUP1: alla fine.'); }
+  },
+  sound: () => { S.set.sound = !S.set.sound; save(); render(); tone(SND.tap); },
+  diaryall: () => { diaryAll = true; render(); const d = $('details'); if (d) d.open = true; },
+  rewizard: () => { startWizard(S.profile); render(); scrollTo(0,0); },
+  reset: resetModal,
+  doreset: () => { if (($('#rc')?.value || '').trim().toUpperCase() !== 'CANCELLA') return toast('Scrivi CANCELLA'); localStorage.removeItem(KEY); S = {}; norm(); W = null; draft = null; diaryAll = false; MQ.length = 0; $('#modal')._opt = {}; nextModal(); render(); },
+};
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]'); if (!el) return;
+  const f = ACT[el.dataset.act] || WACT[el.dataset.act]; if (!f) return;
+  if (guarded()) { e.preventDefault(); e.stopPropagation(); return; }
+  if (!el.matches('a[href]')) e.preventDefault();
+  f(el);
+  const act = el.dataset.act;
+  guard(['done','buy','team','mood','undook','unteamok'].includes(act) ? 700 : act.startsWith('wz-') ? 300 : 400);
+});
+document.addEventListener('input', e => {
+  if (e.target.id === 'ans') { draft = {d: today(), a: e.target.value}; return; }
+  const el = e.target.closest('[data-field]'); if (!el || !W) return;
+  const f = el.dataset.field;
+  if (['mini','epic'].includes(f)) { const raw = el.value.trim(); W[f] = /^\d{1,4}$/.test(raw) ? +raw : 0; W['_bad_' + f] = !!raw && !W[f]; }
+  else W[f] = el.value;
+  wzLive();
+});
+
+/* ---------- il patto ---------- */
+function pactHTML(p){
+  const ob = (p.obstacles || []).filter(k => OBST[k]);
+  return `<div class="pact"><div class="pact-title">📜 IL PATTO</div>
+    <p>Io, <b>${esc(cap1(p.name))}</b>, sono uno che <b>${esc(p.identity)}</b>.</p>
+    <p><b>${esc(p.cue)}</b>, farò <b>${esc(qty(p.habit.mini, p.habit))}</b> ${esc(p.place)}.</p>
+    <p>Nei giorni da campione: <b>${esc(qty(p.habit.epic, p.habit))}</b>.</p>
+    ${ob.length ? `<ul>${ob.map(k => `<li>Se <b>${OBST[k].l}</b> → ${planFor(k, p)}</li>`).join('')}</ul>` : ''}
+    ${p.bundle ? '<p>🎮 Prima la quest, poi console o telefono.</p>' : ''}
+    <p><b>Mai due giorni di fila.</b></p>
+    ${sigHTML(p)}
+    <div class="pact-foot">Firmato il ${fmtDate(p.signed || p.created)}</div></div>`;
+}
+
+/* ---------- wizard ---------- */
+function startWizard(prev){
+  WI = 0;
+  W = prev ? {
+    name:prev.name, age:prev.age, buddy:prev.buddy, buddyName:prev.buddyName, goals:[...(prev.goals||[])], goalOther:prev.goalOther||'', why:[...(prev.why||[])],
+    identity: IDENT.includes(prev.identity) ? prev.identity : 'altro', identityOther: IDENT.includes(prev.identity) ? '' : prev.identity,
+    habitKey: prev.habit.key, cLabel: prev.habit.key === 'altro' ? prev.habit.label : '', cUnit: prev.habit.key === 'altro' ? prev.habit.unit : '',
+    cOne: prev.habit.key === 'altro' ? (prev.habit.one || '') : '',
+    mini: prev.habit.mini, epic: prev.habit.epic,
+    cue: CUES.includes(prev.cue) ? prev.cue : 'altro', cueOther: CUES.includes(prev.cue) ? '' : prev.cue, place: prev.place,
+    bundle: prev.bundle, song: prev.song||'', obst:[...(prev.obstacles||[])],
+    partner: prev.partnerKind && PARTNERS.includes(prev.partnerKind) ? prev.partnerKind : !prev.partner ? 'Da solo' : PARTNERS.includes(prev.partner) ? prev.partner : 'Un amico',
+    partnerName: PARTNERS.includes(prev.partner) ? '' : (prev.partner||''),
+    reward: [...REWARDS, ...REWARDS_ADULT].includes(prev.reward) ? prev.reward : (prev.reward ? 'altro' : ''), rewardOther: [...REWARDS, ...REWARDS_ADULT].includes(prev.reward) ? '' : (prev.reward||''),
+    remind: prev.remind || '18:00', sigv: null, _l1up:true, _l1down:true, _quiz:'B', _redo:true,
+  } : {name:'', age:'', buddy:'', buddyName:'', goals:[], goalOther:'', why:[], identity:'', identityOther:'', habitKey:'', cLabel:'', cUnit:'', mini:0, epic:0,
+       cue:'', cueOther:'', place:'', bundle:null, song:'', obst:[], partner:'', partnerName:'', reward:'', rewardOther:'', remind:'18:00', sigv:null};
+}
+function chip(field, val, label, {multi=0, extra=''}={}){
+  const on = multi ? (W[field]||[]).includes(val) : String(W[field]) === String(val);
+  return `<button class="chip ${on?'on':''}" data-act="wz-chip" data-f="${field}" data-v="${esc(val)}" ${multi?`data-multi="${multi}"`:''} aria-pressed="${on}">${label}${extra}</button>`;
+}
+const habitOf = () => W.habitKey === 'altro' ? {label:W.cLabel||'La mia quest', emoji:'⭐', unit:W.cUnit||'ripetizioni', one:(W.cOne || '').trim() || undefined, minis:[], epics:[]} : HABITS[W.habitKey];
+const cueOf = () => W.cue === 'altro' ? W.cueOther.trim() : W.cue;
+const partnerOf = () => W.partner === 'Da solo' ? '' : (['Fratello o sorella','Un amico'].includes(W.partner) ? W.partnerName.trim() : W.partner);
+const needsPartnerName = () => ['Fratello o sorella','Un amico'].includes(W.partner);
+const wAdult = () => W.age === 'Adulto';
+
+const STEPS = [
+  {id:'intro', next:'Iniziamo ▶', ok:()=>true, html:()=> W._redo ? `
+    <div class="hero"><div class="big-emoji bob">${BUDDIES[S.profile.buddy].stages[calc().stage]}</div></div>
+    <h1>🔁 Rifai il patto</h1>
+    <p>Rivedi le risposte e cambia quello che vuoi: obiettivi, quest, segnale, ostacoli. Fiamma, livelli e trofei restano tutti.</p>
+    <p class="muted">Alla fine si firma di nuovo.</p>` : `
+    <div class="hero"><div class="big-emoji wobble">🥚</div></div>
+    <h1>Qui dentro c'è il tuo buddy.</h1>
+    <p>Si schiude tra poco, ma prima deve conoscerti. Qualche domanda veloce, un paio di trucchi da campione, e si parte.</p>
+    <p class="muted">Rispondi come ti viene: c'è un solo quiz, il resto lo decidi tu. Ci vogliono circa 4 minuti.</p>`},
+  {id:'name', ok:()=>W.name.trim() && W.age, html:()=>`
+    <h2>Ok player, come ti chiami?</h2>
+    <input class="txt" data-field="name" maxlength="20" placeholder="Il tuo nome" value="${esc(W.name)}" autocomplete="off" aria-label="Il tuo nome">
+    <h3>Quanti anni hai?</h3>
+    <div class="chips">${['10','11','12','13','14','15','16','17','18+','Adulto'].map(a => chip('age', a, a)).join('')}</div>`},
+  {id:'buddy', ok:()=>W.buddy, html:()=>`
+    <h2>Scegli il tuo buddy</h2>
+    <p class="muted">Adesso è un uovo. Cresce quando cresci tu: ogni quest gli dà XP, e ai livelli 2, 5 e 10 si evolve fino alla forma finale.</p>
+    <div class="buddy-pick">${Object.entries(BUDDIES).map(([k,b]) => `<button class="bp ${W.buddy===k?'on':''}" data-act="wz-chip" data-f="buddy" data-v="${k}" aria-pressed="${W.buddy===k}"><span class="e">${b.stages[3]}</span><b>${b.label}</b><span class="evo">${b.stages.join(' → ')}</span></button>`).join('')}</div>
+    ${W.buddy ? `<h3>Come lo chiami?</h3><input class="txt" data-field="buddyName" maxlength="16" placeholder="${BUDDIES[W.buddy].def}" value="${esc(W.buddyName)}" autocomplete="off" aria-label="Nome del buddy">` : ''}`},
+  {id:'l1', ok:()=>W._l1up || W._l1down, html:()=>`
+    <span class="lesson">📚 Lezione 1 · Il trucco dell'1%</span>
+    <h2>Cosa succede se migliori solo dell'1% al giorno?</h2>
+    <p class="muted">Tocca i due bottoni e guarda cosa succede in un anno.</p>
+    <div class="calc">
+      <div class="box up"><div class="num" id="l1u">${W._l1up ? '37,8' : '1,0'}</div><div class="small dim" id="l1ud">${W._l1up ? 'giorno 365' : 'giorno 0'}</div><button class="btn ok" data-act="wz-l1" data-v="up">+1% al giorno</button></div>
+      <div class="box down"><div class="num" id="l1d">${W._l1down ? '0,03' : '1,0'}</div><div class="small dim" id="l1dd">${W._l1down ? 'giorno 365' : 'giorno 0'}</div><button class="btn" style="background:var(--bad);box-shadow:0 5px 0 #b02a48;color:#2a0410" data-act="wz-l1" data-v="down">−1% al giorno</button></div>
+    </div>
+    ${W._l1up || W._l1down ? `<div class="say">Un 1% è pochissimo: una ripetizione in più, un minuto in più. Ma ripetuto tutti i giorni, dopo un anno sei <b>37 volte</b> più forte. E vale anche al contrario: un 1% in meno al giorno ti porta quasi a zero.<br><b>La differenza la fa ripeterlo tutti i giorni, anche poco.</b></div>` : ''}`},
+  {id:'goals', ok:()=>W.goals.length || W.goalOther.trim(), html:()=>`
+    <h2>Tra un anno, cosa ti piacerebbe?</h2>
+    <p class="muted">Scegline fino a 3.</p>
+    <div class="chips">${GOALS.filter(g => !(wAdult() && g[0] === 'papa')).map(([k,l]) => chip('goals', k, l, {multi:3})).join('')}</div>
+    <h3>Altro? Scrivilo tu</h3><input class="txt" data-field="goalOther" maxlength="60" placeholder="Per esempio: correre 5 km" value="${esc(W.goalOther)}" autocomplete="off" aria-label="Altro obiettivo">`},
+  {id:'why', ok:()=>W.why.length, html:()=>`
+    <h2>E perché è importante per te?</h2>
+    <p class="muted">Scegline 1 o 2. Nei giorni in cui non avrai voglia, il buddy te lo ricorderà.</p>
+    <div class="chips col">${WHYS.map(([k,l]) => chip('why', k, l, {multi:2})).join('')}</div>`},
+  {id:'ident', ok:()=>W.identity && (W.identity !== 'altro' || W.identityOther.trim()), html:()=>`
+    <span class="lesson">📚 Lezione 2 · Chi vuoi diventare</span>
+    <h2>Ogni quest è un voto.</h2>
+    <div class="say">Ogni volta che fai la tua quest voti per la persona che vuoi diventare. Non devi vincere tutte le elezioni: ti basta la maggioranza dei giorni.</div>
+    <h3>Pensa a chi vuoi diventare e completa la frase: «Io sono uno che…»</h3>
+    <div class="chips col">${IDENT.map(i => chip('identity', i, '…' + i)).join('')}${chip('identity','altro','✍️ La scrivo io (come voglio diventare)')}</div>
+    ${W.identity === 'altro' ? `<input class="txt" data-field="identityOther" maxlength="60" placeholder="…per esempio: si allena anche quando è stanco" value="${esc(W.identityOther)}" autocomplete="off" aria-label="La mia frase">` : ''}`},
+  {id:'habit', ok:()=>W.habitKey && (W.habitKey !== 'altro' || (W.cLabel.trim() && W.cUnit.trim())), html:()=>`
+    <h2>Scegli la tua prima quest</h2>
+    <p class="muted">Una sola, per cominciare. Quando diventa automatica, potrai alzarla o cambiarla.</p>
+    <div class="chips">${Object.entries(HABITS).map(([k,h]) => chip('habitKey', k, `${h.emoji} ${h.label}`)).join('')}${chip('habitKey','altro','✍️ Altro')}</div>
+    ${W.habitKey && W.habitKey !== 'altro' && HABITS[W.habitKey].tip ? `<div class="say small">${HABITS[W.habitKey].tip}</div>` : ''}
+    ${W.habitKey === 'altro' ? `<h3>Come si chiama?</h3><input class="txt" data-field="cLabel" maxlength="30" placeholder="Per esempio: corsa" value="${esc(W.cLabel)}" autocomplete="off" aria-label="Nome della quest"><h3>Cosa conti? (al plurale)</h3><input class="txt" data-field="cUnit" maxlength="30" placeholder="Per esempio: minuti di corsa" value="${esc(W.cUnit)}" autocomplete="off" aria-label="Cosa conti"><h3>E quando è uno solo? (se vuoi)</h3><input class="txt" data-field="cOne" maxlength="30" placeholder="Per esempio: minuto di corsa" value="${esc(W.cOne || '')}" autocomplete="off" aria-label="Al singolare">` : ''}`},
+  {id:'mini', ok:()=>W.mini >= 1 && W.epic > W.mini, html:()=>{ const h = habitOf(); return `
+    <span class="lesson">📚 Lezione 3 · La regola dei due minuti</span>
+    <h2>Il segreto è partire piccolissimo.</h2>
+    <div class="say">La quest di tutti i giorni deve essere così facile che dire di no sarebbe ridicolo. Chi molla di solito parte troppo forte. <b>Il trucco è esserci tutti i giorni, anche con poco.</b></div>
+    <h3>La tua versione MINI (tutti i giorni)</h3>
+    ${h.minis.length ? `<div class="chips">${h.minis.map((n,i) => chip('mini', n, esc(qty(n, h)), {extra: i===0 ? ' <span class="tag">consigliata</span>' : ''})).join('')}</div>`
+      : `<input class="txt" data-field="mini" inputmode="numeric" pattern="[0-9]*" placeholder="Quante? (solo numeri interi)" value="${+W.mini || ''}" autocomplete="off" aria-label="Mini"><div class="small" id="hint-mini" style="color:var(--bad)" ${W._bad_mini ? '' : 'hidden'}>Solo numeri interi, per esempio 2.</div>`}
+    <h3>La versione EPICA (giorni da campione, vale più XP)</h3>
+    ${h.epics.length ? `<div class="chips">${h.epics.map(n => chip('epic', n, esc(qty(n, h)))).join('')}</div>`
+      : `<input class="txt" data-field="epic" inputmode="numeric" pattern="[0-9]*" placeholder="Quante? (più della mini)" value="${+W.epic || ''}" autocomplete="off" aria-label="Epica"><div class="small" id="hint-epic" style="color:var(--bad)" ${W._bad_epic ? '' : 'hidden'}>Solo numeri interi, più della mini.</div>`}
+    <p class="small dim">La mini basta sempre per tenere accesa la fiamma. L'epica è un bonus, mai un obbligo.</p>`; }},
+  {id:'when', ok:()=>cueOf() && W.place, html:()=>`
+    <span class="lesson">📚 Lezione 4 · Attaccala a qualcosa che fai già</span>
+    <h2>Quando e dove?</h2>
+    <p class="muted">Il cervello ricorda molto meglio «dopo X faccio Y» che «prima o poi la faccio».</p>
+    <h3>Il tuo segnale: quando, di preciso?</h3>
+    <div class="chips col">${CUES.map(c => chip('cue', c, c)).join('')}${chip('cue','altro','✍️ Lo scrivo io')}</div>
+    ${W.cue === 'altro' ? `<input class="txt" data-field="cueOther" maxlength="60" placeholder="Per esempio: Dopo l'allenamento di calcio" value="${esc(W.cueOther)}" autocomplete="off" aria-label="Il mio segnale">` : ''}
+    <h3>Dove?</h3><div class="chips">${PLACES.map(p => chip('place', p, p)).join('')}</div>
+    <div class="sentence" id="live-when"></div>`},
+  {id:'bundle', ok:()=>W.bundle !== null, html:()=>`
+    <span class="lesson">📚 Lezione 5 · Rendila attraente</span>
+    <h2>Il patto della console</h2>
+    <div class="say">Trucco da pro: attacca la cosa che <b>devi</b> fare a una che ti <b>piace</b>. Prima la quest, poi il gioco. Così la quest diventa la chiave che apre il divertimento.</div>
+    <h3>Lo vuoi nel tuo patto? Decidi tu.</h3>
+    <div class="chips col">${chip('bundle', true, '🎮 Sì: prima la quest, poi console o telefono')}${chip('bundle', false, 'No, non mi serve')}</div>
+    <h3>La tua canzone della quest (se vuoi)</h3>
+    <input class="txt" data-field="song" maxlength="60" placeholder="Titolo e artista" value="${esc(W.song)}" autocomplete="off" aria-label="La mia canzone">
+    <p class="small dim">Se metti sempre la stessa canzone, dopo un po' il cervello capisce da solo: è l'ora della quest.</p>`},
+  {id:'obst', ok:()=>W.obst.length, html:()=>`
+    <span class="lesson">📚 Lezione 6 · Il piano «se… allora»</span>
+    <h2>Cosa potrebbe fermarti?</h2>
+    <p class="muted">I campioni decidono prima cosa faranno quando arriva l'ostacolo. Scegline fino a 3.</p>
+    <div class="chips">${Object.entries(OBST).map(([k,o]) => chip('obst', k, `${o.e} ${cap1(o.l)}`, {multi:3})).join('')}</div>
+    ${W.obst.length ? `<div class="sentence">${W.obst.map(k => `Se <b>${OBST[k].l}</b> → ${planFor(k, {song:W.song, habitKey:W.habitKey})}`).join('<br>')}</div>` : ''}`},
+  {id:'quiz', ok:()=>W._quiz === 'B', html:()=>`
+    <span class="lesson">📚 Lezione 7 · Mai due di fila</span>
+    <h2>Quiz! Ieri hai saltato la quest. Oggi cosa fai?</h2>
+    <div class="chips col quiz">${chip('_quiz','A','A · Lascio perdere, tanto la serie è rotta')}${chip('_quiz','B','B · Faccio la mini, anche se non ho voglia')}</div>
+    ${W._quiz === 'A' ? `<div class="fb no">❌ Ahi! È proprio così che si perdono le abitudini. Riprova.</div>` : ''}
+    ${W._quiz === 'B' ? `<div class="fb ok">✅ Esatto! Saltare un giorno capita a tutti. Saltarne due è l'inizio di un'abitudine nuova, quella sbagliata.</div>
+      <div class="say">Per questo qui la fiamma 🔥 si spegne solo se salti <b>due giorni di fila</b>. E ogni 7 giorni di fiamma guadagni uno <b>scudo 🛡️</b> che la protegge (ne tieni fino a 2).</div>` : ''}`},
+  {id:'team', ok:()=>W.partner && (!needsPartnerName() || W.partnerName.trim()), html:()=>`
+    <h2>Vuoi un compagno di squadra?</h2>
+    <p class="muted">Con un compagno si molla molto meno. Ognuno ha la sua quest e ogni giorno vi chiedete: «Fatta la tua?»</p>
+    <div class="chips">${PARTNERS.map(p => chip('partner', p, p)).join('')}</div>
+    ${needsPartnerName() ? `<h3>Come si chiama?</h3><input class="txt" data-field="partnerName" maxlength="20" placeholder="Nome" value="${esc(W.partnerName)}" autocomplete="off" aria-label="Nome del compagno">` : ''}`},
+  {id:'reward', ok:()=>W.remind && (W.reward !== 'altro' || W.rewardOther.trim()), html:()=>`
+    <h2>👑 Il premio dei 30 giorni di fiamma</h2>
+    <p class="muted">Se arrivi a 30 giorni di fiamma (senza mai lasciarla spegnere), cosa ti piacerebbe? ${partnerOf() ? `Decidetelo insieme, tu e ${esc(partnerOf())}, prima di partire.` : 'Decidilo prima di partire con chi te lo regala.'} Meglio un'esperienza da fare insieme. (Se vuoi.)</p>
+    <div class="chips col">${(wAdult() ? REWARDS_ADULT : REWARDS).map(r => chip('reward', r, r)).join('')}${chip('reward','altro','✍️ Lo scrivo io')}</div>
+    ${W.reward === 'altro' ? `<input class="txt" data-field="rewardOther" maxlength="60" placeholder="Il mio premio" value="${esc(W.rewardOther)}" autocomplete="off" aria-label="Il mio premio">` : ''}
+    <h3>⏰ A che ora vuoi il promemoria? (lo attivi dopo, in 30 secondi)</h3>
+    <div class="chips">${TIMES.map(t => chip('remind', t, t)).join('')}</div>`},
+  {id:'pact', next:'Firmo il patto ✍️', ok:()=>!!(W.sigv && W.sigv.s.length && validSigv(W.sigv)), html:()=>`
+    <h2>Ecco il tuo patto</h2>
+    ${pactHTML({...draftProfile(), sig:null, sigv:null})}
+    <h3>Firma qui con il dito</h3>
+    <canvas class="sigpad" id="sig" aria-label="Spazio per la firma"></canvas>
+    <button class="link" data-act="wz-sigclear">Cancella la firma</button>`},
+  {id:'hatch', noBack:true, next:()=>W._redo ? 'Torna al gioco ▶' : 'Fai la prima quest ▶', ok:()=>true, html:()=>`
+    <div class="hero"><div class="big-emoji shake" id="egg">${W._redo ? BUDDIES[S.profile.buddy].stages[calc().stage] : '🥚'}</div></div>
+    <h1 class="center" id="hatch-t">${W._redo ? 'Aggiorno il patto…' : 'Sta per schiudersi…'}</h1>
+    <div id="hatch-m"></div>`},
+];
+function draftProfile(){
+  const h = habitOf(), prev = S.profile;
+  return {
+    name:cap1(W.name.trim()), age:W.age, buddy:W.buddy, buddyName:W.buddyName.trim() || BUDDIES[W.buddy]?.def || 'Buddy',
+    goals:[...W.goals], goalOther:W.goalOther.trim(), why:[...W.why],
+    identity: W.identity === 'altro' ? W.identityOther.trim() : W.identity,
+    habit:{key:W.habitKey, label:h.label, emoji:h.emoji, unit:h.unit, one:h.one, mini:+W.mini, epic:+W.epic,
+           changed: prev && prev.habit.key === W.habitKey && prev.habit.mini === +W.mini ? prev.habit.changed : today()},
+    cue:cap1(cueOf()), place:W.place, bundle:!!W.bundle, song:W.song.trim(), obstacles:[...W.obst], partner:partnerOf(), partnerKind:W.partner,
+    reward: W.reward === 'altro' ? W.rewardOther.trim() : W.reward, remind:W.remind, sigv:W.sigv, sig:null,
+    created: prev?.created || today(), signed: today(),
+  };
+}
+function renderWizard(){
+  document.body.classList.add('wz'); $('#tabs').hidden = true;
+  const st = STEPS[WI], total = STEPS.length - 1;
+  const xp = Math.min(60, WI * 4);
+  app.innerHTML = `<div class="wz-top">${WI > 0 && !st.noBack ? '<button class="wz-back" data-act="wz-back" aria-label="Indietro">←</button>' : ''}<div class="bar"><i style="width:${Math.round(100*WI/total)}%"></i></div><span class="xpc">⭐ ${xp} XP</span></div>
+    <div class="wz-body">${st.html()}</div>
+    <div class="wz-foot"><button class="btn big" id="wz-next" data-act="wz-next" ${st.ok() ? '' : 'disabled'}>${(typeof st.next === 'function' ? st.next() : st.next) || 'Avanti ▶'}</button>
+    ${st.id === 'intro' && !W._redo ? '<button class="link" data-act="saveimport">Ho già una partita: incolla il codice</button>' : ''}
+    ${W._redo && st.id === 'intro' ? '<button class="link" data-act="wz-cancel">Lascia stare, torna al gioco</button>' : ''}</div>`;
+  wzLive();
+  if (st.id === 'pact') sigPad($('#sig'));
+  if (st.id === 'hatch') hatch();
+}
+function wzLive(){
+  const st = STEPS[WI]; const nb = $('#wz-next'); if (nb) nb.disabled = !st.ok();
+  for (const f of ['mini','epic']) { const hn = $('#hint-' + f); if (hn) hn.hidden = !W['_bad_' + f]; }
+  const lw = $('#live-when');
+  if (lw) { const c = cueOf(), h = habitOf(); lw.innerHTML = c && W.place ? `«${esc(c)}, farò <b>${esc(qty(W.mini, h))}</b> ${esc(W.place)}.»` : '<span style="opacity:.6">«Quando…, farò…»</span>'; }
+}
+function sigPad(cv){
+  const r0 = cv.getBoundingClientRect(), d = devicePixelRatio || 1;
+  cv.width = r0.width*d; cv.height = r0.height*d;
+  const x = cv.getContext('2d'); x.scale(d,d); x.lineWidth = 3; x.lineCap = 'round'; x.lineJoin = 'round'; x.strokeStyle = '#1b1640'; x.fillStyle = '#1b1640';
+  const k = 300 / r0.width, H = Math.round(r0.height * k);
+  let drawing = false, last = null, stroke = null;
+  const strokes = [];
+  const pos = e => { const b = cv.getBoundingClientRect(); return [(e.clientX - b.left) * r0.width / b.width, (e.clientY - b.top) * r0.height / b.height]; };
+  const add = p => { stroke.push(Math.round(p[0]*k), Math.round(p[1]*k)); };
+  cv.addEventListener('pointerdown', e => { drawing = true; last = pos(e); cv.setPointerCapture(e.pointerId); stroke = []; add(last); strokes.push(stroke); x.beginPath(); x.arc(last[0], last[1], 1.4, 0, 7); x.fill(); });
+  cv.addEventListener('pointermove', e => {
+    if (!drawing) return; const p = pos(e);
+    x.beginPath(); x.moveTo(...last); x.lineTo(...p); x.stroke();
+    if (Math.hypot(p[0]-last[0], p[1]-last[1]) * k >= 1.5) add(p);
+    last = p;
+  });
+  const end = () => {
+    if (!drawing) return; drawing = false;
+    const s = strokes.map(st => st.slice());
+    // firma lunghissima: tolgo un punto su due al tratto più lungo finché sta nei limiti
+    const tot = () => s.reduce((a, st) => a + st.length, 0);
+    while (tot() > 7800) {
+      const st = s.reduce((a, b) => b.length > a.length ? b : a);
+      if (st.length <= 4) break;
+      const keep = []; for (let i = 0; i < st.length; i += 2) if ((i / 2) % 2 === 0 || i === st.length - 2) keep.push(st[i], st[i+1]);
+      st.splice(0, st.length, ...keep);
+    }
+    W.sigv = {w:300, h:H, s}; wzLive();
+  };
+  cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
+}
+function hatch(){
+  const b = BUDDIES[W.buddy] || BUDDIES[S.profile.buddy], redo = !!W._redo;
+  const nb = $('#wz-next'); nb.style.visibility = 'hidden';
+  setTimeout(() => {
+    const e = $('#egg'); if (!e) return;
+    const c = calc();
+    e.className = 'big-emoji pop'; e.textContent = b.stages[c.stage];
+    $('#hatch-t').textContent = redo ? 'Patto rinnovato!' : `${S.profile.buddyName} è nato!`;
+    $('#hatch-m').innerHTML = redo
+      ? `<div class="say">Da oggi vale questo patto: <b>${esc(questLine())}</b>.</div>`
+      : `<p class="center"><b>+60 XP</b> per il patto firmato → <b>Livello 2</b>!</p>
+         <div class="say">Ultima cosa, la più importante: la prima quest si fa <b>adesso</b>, finché sei carico. <b>${esc(questLine())}</b>. Poi premi FATTO.</div>
+         <p class="small dim center">⏰ Il promemoria lo attivi dalla home, in 30 secondi.</p>`;
+    tone(SND.level); confetti(220, ['⭐','🔥','✨']);
+    nb.style.visibility = 'visible';
+  }, 1600);
+}
+const gotoStep = i => { WI = i; if (STEPS[WI].id === 'pact') W.sigv = null; renderWizard(); scrollTo(0,0); };
+const WACT = {
+  'wz-next': () => {
+    const st = STEPS[WI]; if (!st.ok()) return;
+    tone(SND.tap);
+    if (st.id === 'pact') {
+      S.profile = draftProfile(); S.ui.awardInit = 1;
+      if (!S.ev.some(e => e.t === 'bonus' && e.why === 'patto')) S.ev.push({t:'bonus', d:today(), xp:60, why:'patto'});
+      save(); keepData();
+    }
+    if (st.id === 'hatch') { W = null; S.ui.tab = 'home'; save(); render(); scrollTo(0,0); return; }
+    gotoStep(WI + 1);
+  },
+  'wz-back': () => { if (WI > 0) gotoStep(WI - 1); },
+  'wz-cancel': () => { W = null; render(); },
+  'wz-chip': el => {
+    const f = el.dataset.f, max = +el.dataset.multi || 0;
+    let v = el.dataset.v; if (v === 'true') v = true; else if (v === 'false') v = false; else if (['mini','epic'].includes(f)) v = +v;
+    if (max) {
+      const a = W[f]; const i = a.indexOf(v);
+      if (i >= 0) a.splice(i, 1); else { if (a.length >= max) { toast(`Massimo ${max}`); return; } a.push(v); }
+    } else {
+      W[f] = v;
+      if (f === 'habitKey') { const h = HABITS[v]; W.mini = h ? h.minis[0] : 0; W.epic = h ? h.epics[1] : 0; }
+      if (f === 'age' && v === 'Adulto') W.goals = W.goals.filter(g => g !== 'papa');
+    }
+    tone(SND.tap); renderWizard();
+  },
+  'wz-l1': el => {
+    const up = el.dataset.v === 'up';
+    W[up ? '_l1up' : '_l1down'] = true; renderWizard();
+    const n = $(up ? '#l1u' : '#l1d'), dd = $(up ? '#l1ud' : '#l1dd'), t0 = performance.now();
+    const step = t => { const k = Math.min(1, (t - t0)/1700), day = Math.round(365*k), v = Math.pow(up ? 1.01 : 0.99, day);
+      n.textContent = v.toLocaleString('it-IT', {minimumFractionDigits: v < 1 ? 2 : 1, maximumFractionDigits: v < 1 ? 2 : 1}); dd.textContent = 'giorno ' + day;
+      if (k < 1) requestAnimationFrame(step); else tone(up ? SND.done : [[220,0,.25,'sawtooth',.04]]); };
+    requestAnimationFrame(step);
+  },
+  'wz-sigclear': () => { W.sigv = null; renderWizard(); },
+};
+
+/* ---------- avvio ---------- */
+function checkDay(){
+  // a modale aperto o mentre scrive aspetta: chiudere il modale ridisegna comunque sul giorno giusto
+  if (W || !S.profile || !shownDay || today() === shownDay || mOpen || document.activeElement?.matches('textarea, input')) return;
+  S.ui.tab = 'home'; render();
+}
+let hiddenAt = 0;
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { hiddenAt = Date.now(); return; }
+  if (hiddenAt && Date.now() - hiddenAt > 30 * 60e3 && !W && !mOpen && !document.activeElement?.matches('textarea, input')) { location.reload(); return; }
+  checkDay();
+  navigator.serviceWorker?.getRegistration?.().then(g => g && g.update()).catch(() => {});
+  if (AC) AC.suspend().then(() => AC.resume()).catch(() => { try { AC.close(); } catch(e) {} AC = null; });
+});
+addEventListener('focus', checkDay);
+addEventListener('pageshow', checkDay);
+setInterval(checkDay, 30000);
+
+S.ui.tab = 'home';
+try { render(); }
+catch (err) {
+  app.innerHTML = `<div class="card"><h2>⚠️ Qualcosa non va con i dati salvati</h2><p class="small">Il gioco non riesce a leggere la partita. Copia i dati (senza il diario) e mandali a chi ti ha dato l'app, poi puoi ricominciare.</p><button class="btn" id="rawcopy">📋 Copia i dati (senza diario)</button><button class="btn ghost" data-act="reset">Ricomincia da zero</button></div>`;
+  $('#rawcopy').onclick = () => {
+    let t = localStorage.getItem(KEY) || '';
+    try { const o = JSON.parse(t); if (Array.isArray(o?.ev)) o.ev = o.ev.map(e => e?.t === 'answer' ? {t:'answer', d:e.d, skip:e.skip} : e?.t === 'mood' ? {t:'mood', d:e.d} : e); t = JSON.stringify(o); } catch(e) {}
+    copyText(t, 'Dati copiati ✓');
+  };
+}
+keepData();
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
