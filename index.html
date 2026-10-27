@@ -199,6 +199,11 @@ input[type=file]{font-size:16px; margin-top:8px; max-width:100%; color:var(--mut
 .shop-item{display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:2px solid var(--line)}
 .shop-item:last-child{border-bottom:0}
 .shop-item .se{font-size:38px; width:50px; text-align:center}
+.link.inl{display:inline; margin:0; padding:0 4px; min-height:0; font-size:inherit}
+.heat i.r1,.legend i.r1{background:var(--blue)} .heat i.r2,.legend i.r2{background:var(--purple)} .heat i.r3,.legend i.r3{background:var(--gold)} .heat i.r0,.legend i.r0{background:transparent; box-shadow:inset 0 0 0 2px var(--blue)}
+.wd.read b{background:var(--blue); border-color:var(--blue); color:#012} .wd.read2 b{background:var(--purple); border-color:var(--purple)} .wd.read3 b{background:var(--gold); border-color:var(--gold); color:#2a1d00}
+.stag{display:inline-block; font-size:.7rem; font-weight:800; padding:1px 7px; border-radius:99px; background:var(--bg2); color:var(--muted); vertical-align:2px; margin-left:6px}
+.stag.on{background:var(--ok); color:#04230f}
 .shop-item .btn{width:auto; margin:0; padding:9px 14px; font-size:1rem; white-space:nowrap; min-height:44px}
 .menu .btn{justify-content:flex-start}
 .diary{border-bottom:2px solid var(--line); padding:8px 0}
@@ -249,7 +254,7 @@ ol{padding-left:1.3em; margin:.4em 0} ol li{margin:.25em 0; line-height:1.35}
 <canvas id="fx" aria-hidden="true"></canvas>
 <script>
 'use strict';
-const VERSION = '1.2';
+const VERSION = '1.3';
 const KEY = 'levelup.v1';
 const P = new URLSearchParams(location.search);
 const DEV = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
@@ -407,6 +412,12 @@ const BADGES = [
   {id:'x7',  e:'🔋', n:'Settimana extra', d:'7 giorni extra di fila.', g:40, ok:s=>s.xBest>=7},
   {id:'x30', e:'🏋️', n:'Macchina da extra', d:'30 giorni extra di fila.', g:100, ok:s=>s.xBest>=30},
   {id:'x100',e:'💥', n:'Cento extra', d:'100 esercizi extra in totale.', g:60, ok:s=>s.xTotal>=100},
+  {id:'r1',  e:'📖', n:'Prima pagina', d:'Il tuo primo giorno di lettura.', g:10, ok:s=>s.rDays>=1},
+  {id:'r7',  e:'📚', n:'Settimana di lettura', d:'7 giorni di lettura di fila.', g:30, ok:s=>s.rBest>=7},
+  {id:'r30', e:'🦉', n:'Topo di biblioteca', d:'30 giorni di lettura di fila.', g:100, ok:s=>s.rBest>=30},
+  {id:'rp100',e:'📜', n:'Cento pagine', d:'100 pagine lette in totale.', g:40, ok:s=>s.rPages>=100},
+  {id:'rd10',e:'⭐', n:'Doppio turno', d:'10 giorni con almeno il doppio del piano di lettura.', g:50, ok:s=>s.rDouble>=10},
+  {id:'rl4', e:'🪜', n:'Quarto piano', d:'Piano di lettura 4 raggiunto: 8 pagine o 15 minuti al giorno.', g:60, ok:s=>s.rMaxLv>=4},
 ];
 const MILESTONES = [3,7,14,21,30,50,66,100,150,200,365];
 
@@ -446,8 +457,10 @@ const RAR = {c:'Comune', r:'Rara', e:'Epica', l:'Leggendaria'};
 const cardAt = i => i < 10 ? i + 1 : 10 + (i - 9) * 3;     // quest a cui si sblocca la carta i
 const cardsFor = total => CARDS.filter((_, i) => cardAt(i) <= total).length;
 
+const SUGG_KINDS = [['idea','💡','Un\'idea'],['help','❓','Come funziona?'],['bug','🛠️','Qualcosa non va']];
+const suggKindOf = k => SUGG_KINDS.find(x => x[0] === k) || SUGG_KINDS[0];
 const SHOP = [
-  {id:'shield',      e:'🛡️', n:'Scudo', d:'Salva la fiamma quando salti il secondo giorno di fila. Ne puoi tenere 3.', cost:60, kind:'shield'},
+  {id:'shield',      e:'🛡️', n:'Scudo', d:'Salva la fiamma quando salti il secondo giorno di fila: si usa da solo, senza premere niente. Ne puoi tenere 3.', cost:60, kind:'shield'},
   {id:'cap',         e:'🧢', n:'Cappellino', cost:40, kind:'hat'},
   {id:'phones',      e:'🎧', n:'Cuffie da allenamento', cost:90, kind:'hat'},
   {id:'tophat',      e:'🎩', n:'Cilindro da boss', cost:160, kind:'hat'},
@@ -459,9 +472,17 @@ const SHOP = [
   {id:'ocean',       e:'🌊', n:'Tema Oceano', cost:120, kind:'theme'},
   {id:'jungle',      e:'🌴', n:'Tema Giungla', cost:120, kind:'theme'},
   {id:'gold',        e:'🏆', n:'Tema Oro', cost:450, kind:'theme'},
-  {id:'gift',        e:'🎁', n:'Regalo per il buddy', d:'Lo rende felicissimo. Puoi regalarglielo tutte le volte che vuoi.', cost:50, kind:'gift'},
+  {id:'gift',        e:'🎁', n:'Regalo per il buddy', d:'Lo rende felicissimo: coriandoli subito e un ❤️ in più accanto al suo nome, per sempre. È solo affetto, nessun bonus di gioco. Puoi regalarglielo tutte le volte che vuoi.', cost:50, kind:'gift'},
 ];
 const shopItem = (id, kind) => SHOP.find(s => s.id === id && (!kind || s.kind === kind));
+function shopDesc(s){
+  if (s.d) return s.d;
+  const b = esc(P_()?.buddyName || 'il buddy');
+  if (s.kind === 'hat') return `${b} lo porta in testa: lo vedi qui sopra e nella Home. Un cappello alla volta.`;
+  if (s.kind === 'aura') return `Alone luminoso intorno a ${b}, sempre acceso. Un'aura alla volta.`;
+  if (s.kind === 'theme') return `Colori nuovi per tutta l'app. Un tema alla volta; «Togli» riporta il viola.`;
+  return '';
+}
 
 /* ---------- extra (richiesti da Massimo il 27.10.2026): gemme in più e una serie tutta loro ---------- */
 const EXTRA = [
@@ -476,6 +497,14 @@ const EXTRA_GEM = 2, EXTRA_XP = 2, EXTRA_FULL_GEM = 6, EXTRA_DAY = 3, EXTRA_WEEK
 const coreOf = d => dayIdx(d) % 2 ? {e:'🍫', n:'10 addominali'} : {e:'🧱', n:'20 secondi di plank'};
 const extraOf = (k, d) => { const x = EXTRA.find(x => x.k === k); return x && x.k === 'core' ? {...x, ...coreOf(d)} : x; };
 const xDays = n => `${n} ${n === 1 ? 'giorno' : 'giorni'}`;
+
+/* ---------- lettura (chiesta il 27.10.2026): pagine o minuti a scelta, serie a parte, piano che sale solo se lo decide lui ---------- */
+const READ_FLOORS = [{p:1,m:5},{p:3,m:8},{p:5,m:10},{p:8,m:15},{p:12,m:20},{p:15,m:25},{p:20,m:30}];
+const READ_QUICK = {pag:[1,3,5,10,20], min:[5,10,15,20,30]};
+const READ_GEM = 3, READ_XP = 5, READ_X2_GEM = 6, READ_X3_GEM = 4, READ_WEEK_GEM = 25, READ_MONTH_GEM = 100;
+const rUnit = (n, u) => `${n} ${u === 'min' ? (n === 1 ? 'minuto' : 'minuti') : (n === 1 ? 'pagina' : 'pagine')}`;
+const floorText = f => `${rUnit(f.p, 'pag')} o ${rUnit(f.m, 'min')}`;
+const readTxt = e => `${e.p ? rUnit(e.p, 'pag') : ''}${e.p && e.m ? ' e ' : ''}${e.m ? rUnit(e.m, 'min') : ''}`;
 
 /* ---------- firma (tracciato vettoriale) ---------- */
 const SIG_RE = /^data:image\/png;base64,[A-Za-z0-9+/=]+$/;
@@ -501,7 +530,7 @@ function norm(){
   S.v = 1; S.profile ||= null; S.ev ||= []; S.eq ||= {}; S.set ||= {sound:true}; S.ui ||= {}; S.ui.tab ||= 'home'; S.ui.seen ||= 0;
   if (S.profile && typeof cleanState === 'function') {
     // anche i dati già salvati passano dalla stessa pulizia dell'import; i flag locali dell'interfaccia restano
-    try { const ui = S.ui; S = cleanState(S); for (const k of ['noInstall','safariOk','goldiNo','tab']) if (ui[k] !== undefined) S.ui[k] = ui[k]; } catch(e) {}
+    try { const ui = S.ui; S = cleanState(S); for (const k of ['noInstall','safariOk','goldiNo','readNo','tab']) if (ui[k] !== undefined) S.ui[k] = ui[k]; } catch(e) {}
   }
   const h = S.profile?.habit;
   if (h) { if (h.emoji === '\u{1FAA2}') h.emoji = '🦘'; if (!h.one && HABITS[h.key]) h.one = HABITS[h.key].one; }
@@ -514,7 +543,7 @@ async function keepData(){ try { if (navigator.storage?.persist && !(await navig
 /* ---------- motore del gioco ---------- */
 function calc(){
   const T = today();
-  const done = new Map(), buys = new Map(), team = new Set(), moodDays = new Set(), ansDays = new Set(), owned = new Set(), awarded = new Set(), extras = new Map();
+  const done = new Map(), buys = new Map(), team = new Set(), moodDays = new Set(), ansDays = new Set(), owned = new Set(), awarded = new Set(), extras = new Map(), reads = new Map(), floors = new Map();
   let chestG = 0, bonusXP = 0, spent = 0, early = 0, gifts = 0;
   for (const e of S.ev) {
     switch (e.t) {
@@ -526,6 +555,8 @@ function calc(){
       case 'team': team.add(e.d); break;
       case 'award': awarded.add(e.id); break;
       case 'extra': if (!extras.has(e.d)) extras.set(e.d, new Set()); extras.get(e.d).add(e.k); break;
+      case 'read': { const r = reads.get(e.d) || {p:0, m:0, ok:false, mult:0}; if (e.u === 'min') r.m += e.n; else r.p += e.n; reads.set(e.d, r); break; }
+      case 'readfloor': floors.set(e.d, e.lv); break;
       case 'buy': spent += e.cost || 0;
         if (e.item === 'shield') buys.set(e.d, (buys.get(e.d) || 0) + 1); else if (e.item === 'gift') gifts++; else owned.add(e.item); break;
     }
@@ -535,8 +566,9 @@ function calc(){
   let chain = 0, best = 0, gap = 0, earned = 0, bought = 0, shieldsUsed = 0, total = 0, epics = 0, comebacks = 0, broken = false, lastKillWs = null;
   let teamChain = 0, teamBest = 0;
   let xTotal = 0, xFull = 0, xChain = 0, xBest = 0, xGap = 0, xGems = 0;
+  let rChain = 0, rBest = 0, rGap = 0, rGems = 0, rDays = 0, rDouble = 0, rTriple = 0, rLv = 1, rMaxLv = 1, rPages = 0, rMins = 0, rLvSince = null;
   const weekHits = new Map(), bossWeeks = new Set(), shielded = new Set(), missed = new Set();
-  const keys = [...done.keys(), ...buys.keys(), ...extras.keys()].sort();
+  const keys = [...done.keys(), ...buys.keys(), ...extras.keys(), ...reads.keys(), ...floors.keys()].sort();
   const start = keys.length ? keys[0] : T;
   for (let d = start; d <= T; d = addD(d, 1)) {
     const b = buys.get(d); if (b) bought = Math.min(3 - earned, bought + b);
@@ -545,6 +577,21 @@ function calc(){
     if (xn) { xTotal += xn; xp += xn * EXTRA_XP; xGems += xn * EXTRA_GEM; if (xn >= EXTRA.length) { xFull++; xGems += EXTRA_FULL_GEM; } }
     if (xn >= EXTRA_DAY) { xChain++; xGap = 0; if (xChain > xBest) xBest = xChain; if (xChain % 7 === 0) xGems += EXTRA_WEEK_GEM; }
     else if (d < T && xChain > 0) { xGap++; if (xGap >= 2) { xChain = 0; xGap = 0; } }
+    // lettura: il piano in vigore quel giorno decide se la giornata conta; stessa regola «mai due di fila», senza scudi
+    if (floors.has(d)) { rLv = Math.min(READ_FLOORS.length, Math.max(1, floors.get(d))); rLvSince = d; if (rLv > rMaxLv) rMaxLv = rLv; }
+    const rr = reads.get(d);
+    if (rr) {
+      const f = READ_FLOORS[rLv - 1]; rr.mult = Math.max(rr.p / f.p, rr.m / f.m); rr.ok = rr.mult >= 1; rr.lv = rLv;
+      rPages += rr.p; rMins += rr.m;
+      if (rr.ok) {
+        rDays++; rChain++; rGap = 0; xp += READ_XP; rGems += READ_GEM; if (rChain > rBest) rBest = rChain;
+        if (rr.mult >= 2) { rDouble++; rGems += READ_X2_GEM; xp += 5; }
+        if (rr.mult >= 3) { rTriple++; rGems += READ_X3_GEM; xp += 5; }
+        if (rChain % 7 === 0) rGems += READ_WEEK_GEM;
+        if (rChain % 30 === 0) rGems += READ_MONTH_GEM;
+      }
+    }
+    if (!rr?.ok && d < T && rChain > 0) { rGap++; if (rGap >= 2) { rChain = 0; rGap = 0; } }
     const e = done.get(d);
     if (e) {
       if (broken) { comebacks++; broken = false; }
@@ -568,12 +615,12 @@ function calc(){
     }
   }
   const L = levelOf(xp);
-  const stats = {total, best, epics, comebacks, shieldsUsed, bosses:bossWeeks.size, moods:moodDays.size, teamBest, early, lv:L.lv, xTotal, xFull, xBest};
+  const stats = {total, best, epics, comebacks, shieldsUsed, bosses:bossWeeks.size, moods:moodDays.size, teamBest, early, lv:L.lv, xTotal, xFull, xBest, rDays, rBest, rPages, rDouble, rMaxLv};
   const badgesNow = BADGES.filter(x => x.ok(stats)).map(x => x.id);
   const bossNow = [...bossWeeks].map(w => 'boss:' + w);
   const badges = new Set([...badgesNow, ...[...awarded].filter(id => BADGES.some(b => b.id === id))]);
   const bossIds = new Set([...bossNow, ...[...awarded].filter(id => id.startsWith('boss:'))]);
-  const gems = chestG + BADGES.filter(x => badges.has(x.id)).reduce((a, x) => a + x.g, 0) + bossIds.size*40 + xGems - spent;
+  const gems = chestG + BADGES.filter(x => badges.has(x.id)).reduce((a, x) => a + x.g, 0) + bossIds.size*40 + xGems + rGems - spent;
   const doneToday = done.get(T) || null;
   const ws = weekStart(T);
   return {
@@ -589,6 +636,8 @@ function calc(){
     cards: cardsFor(total),
     extras, xToday: extras.get(T) || new Set(), xTotal, xFull, xChain, xBest, xGap,
     xBrace: xChain > 0 && xGap === 1 && (extras.get(T)?.size || 0) < EXTRA_DAY,
+    reads, rToday: reads.get(T) || {p:0, m:0, ok:false, mult:0}, rChain, rBest, rGap, rLv, rFloor: READ_FLOORS[rLv - 1], rDays, rPages, rMins, rDouble, rTriple, rMaxLv, rLvSince,
+    rBrace: rChain > 0 && rGap === 1 && !reads.get(T)?.ok,
   };
 }
 
@@ -730,7 +779,8 @@ let W = null, WI = 0;        // wizard
 let draft = null;            // risposta del giorno non ancora inviata (solo in memoria)
 let diaryAll = false;
 let shownDay = null;
-let justBought = {id:null, until:0};   // appena comprato: niente «Togli» sotto il dito per 1,5 s
+let justBought = {id:null, until:0};
+let suggKind = 'idea', suggDraft = '';   // richiesta in scrittura (solo in memoria)   // appena comprato: niente «Togli» sotto il dito per 1,5 s
 function render(){
   document.body.dataset.theme = S.eq.theme || '';
   const tc = getComputedStyle(document.body).getPropertyValue('--bg').trim();
@@ -800,6 +850,7 @@ function viewHome(c){
   const p = P_(), h = p.habit, T = c.T, y = addD(T, -1);
   let out = topbar(c);
   out += `<div class="buddy-zone">${buddyHTML(c)}<div class="bname">${esc(p.buddyName)} · ${buddyStageName(c.stage)}${c.gifts ? ` · ❤️ ${c.gifts} ${c.gifts === 1 ? 'regalo' : 'regali'}` : ''}</div><div class="bubble">${bubbleText(c)}</div></div>`;
+  if (newVer) out += `<div class="banner small"><b>🆕 Nuova versione ${esc(newVer.v)}</b>${newVer.nota ? `: ${esc(newVer.nota)}` : ''}<div class="small">Hai la ${VERSION}. Tocca Aggiorna: la partita resta tutta.</div><div class="btns"><button class="btn" data-act="reload">🔄 Aggiorna adesso</button></div></div>`;
   if (isIOS() && !isStandalone() && !S.ui.noInstall) out += `<div class="banner small"><b>📲 Mettila nella schermata Home</b> per usarla come un'app vera. L'app sulla Home parte vuota: prima copia la partita da Io → Salva partita.<div class="btns"><button class="btn" data-act="install">Come si fa</button><button class="btn ghost" data-act="noinstall">Dopo</button></div></div>`;
   if (!S.ui.remindDone && c.total > 0) out += `<div class="banner small"><b>⏰ Il promemoria non è ancora attivo.</b> Bastano 30 secondi.<div class="btns"><button class="btn" data-act="remind">Attivalo</button><button class="btn ghost" data-act="noremind">No grazie</button></div></div>`;
   else if (S.ui.remindDone === 1 && S.ui.remindAt && S.ui.remindAt !== p.remind) out += `<div class="banner small"><b>⏰ Hai cambiato l'ora:</b> aggiorna il promemoria (togli quello delle ${esc(S.ui.remindAt)} e metti quello delle ${esc(p.remind)}).<div class="btns"><button class="btn" data-act="remind">Aggiorna</button></div></div>`;
@@ -845,8 +896,9 @@ function viewHome(c){
     <div class="state ${warn?'warn':''}">${st}</div><div class="week">${wk}</div>
     ${next ? `<div class="small dim" style="margin-top:8px">Prossimo traguardo: <b>${next} giorni di fiamma</b> (${next - c.chain === 1 ? 'ne manca 1' : `ne mancano ${next - c.chain}`})</div>` : ''}</div>`;
 
-  // extra
+  // extra e lettura
   out += extraCard(c);
+  out += readCard(c);
 
   // check-in
   if (!c.moodToday) {
@@ -892,6 +944,52 @@ function extraCard(c){
     <div class="xlist">${rows}</div><div class="state ${warn ? 'warn' : ''}">${st}</div><div class="week">${wk}</div>
     <div class="small dim" style="margin-top:8px">Gli extra non toccano la fiamma 🔥: hanno la loro serie. Ogni extra +${EXTRA_GEM} 💎 e +${EXTRA_XP} XP · 5 su 5 +${EXTRA_FULL_GEM} 💎 · ogni 7 giorni di serie +${EXTRA_WEEK_GEM} 💎.</div></div>`;
 }
+function readUpReady(c){
+  if (c.rLv >= READ_FLOORS.length || c.rChain < 7) return false;
+  if (daysBetween(c.rLvSince || P_().created, c.T) < 7) return false;
+  if (S.ui.readNo && daysBetween(S.ui.readNo, c.T) < 7) return false;
+  const nf = READ_FLOORS[c.rLv]; let n = 0;
+  for (let i = 0; i < 7; i++) { const e = c.reads.get(addD(c.T, -i)); if (e && (e.p >= nf.p || e.m >= nf.m)) n++; }
+  return n >= 4;
+}
+function readCard(c){
+  const p = P_(), T = c.T, u = p.readUnit || 'pag', r = c.rToday, f = c.rFloor, some = r.p || r.m;
+  const quick = READ_QUICK[u].map(n => `<button class="chip" data-act="read" data-n="${n}">+${n}</button>`).join('');
+  let st, warn = false;
+  if (r.ok && r.mult >= 3) st = `🌟 Triplo piano! +${READ_GEM + READ_X2_GEM + READ_X3_GEM} 💎 oggi. Serie lettura: ${xDays(c.rChain)}.`;
+  else if (r.ok && r.mult >= 2) st = `⭐ Doppio piano! +${READ_GEM + READ_X2_GEM} 💎. Serie lettura: ${xDays(c.rChain)}. Al triplo altri +${READ_X3_GEM} 💎.`;
+  else if (r.ok) st = `✅ Giornata di lettura fatta: +${READ_XP} XP e +${READ_GEM} 💎. Serie: ${xDays(c.rChain)}. Il doppio del piano vale +${READ_X2_GEM} 💎.`;
+  else if (some) st = `${cap1(readTxt(r))} finora: per contare servono ${floorText(f)}.`;
+  else if (c.rBrace) { warn = true; st = `⚠️ Ieri niente lettura: ${floorText(f)} oggi e la serie continua (${xDays(c.rChain)}). Se salti anche oggi, riparte da zero.`; }
+  else if (c.rBest > 0 && c.rChain === 0) st = `Serie ripartita da zero (record ${c.rBest}). Bastano ${floorText(f)}.`;
+  else st = `Bastano ${floorText(f)} e la giornata conta.`;
+  const wk = ['L','M','M','G','V','S','D'].map((l, i) => {
+    const d = addD(c.ws, i), e = c.reads.get(d);
+    const cls = e?.ok ? (e.mult >= 3 ? 'read3' : e.mult >= 2 ? 'read2' : 'read') : '';
+    return `<div class="wd ${cls} ${d === T ? 'today' : ''}">${l}<b>${e ? (e.p || (e.m ? e.m + '′' : '')) : ''}</b></div>`;
+  }).join('');
+  let out = `<div class="card"><div class="row"><div class="qe">📚</div><div class="grow"><div class="label">Lettura di oggi</div><b style="font-size:1.2rem">Serie lettura: ${xDays(c.rChain)}</b><div class="small muted">record ${c.rBest} · piano ${c.rLv}: ${floorText(f)}</div></div></div>
+    ${p.book ? `<div class="small" style="margin-top:8px">📖 <b>${esc(p.book)}</b> <button class="link inl" data-act="book">cambia</button></div>` : `<button class="link" data-act="book">📖 Che libro stai leggendo? (se vuoi)</button>`}
+    <div class="chips" style="margin-top:6px"><button class="chip ${u === 'pag' ? 'on' : ''}" data-act="readunit" data-v="pag" aria-pressed="${u === 'pag'}">📄 Pagine</button><button class="chip ${u === 'min' ? 'on' : ''}" data-act="readunit" data-v="min" aria-pressed="${u === 'min'}">⏱️ Minuti</button></div>
+    <div class="small muted" style="margin-top:8px">${u === 'min' ? 'Quanti minuti hai letto?' : 'Quante pagine hai letto?'} Tocca e si somma${some ? ` (oggi: ${readTxt(r)})` : ''}.</div>
+    <div class="chips">${quick}<button class="chip" data-act="readother">altro…</button></div>
+    ${some ? `<button class="link" data-act="readundo">Annulla l'ultima</button>` : ''}
+    <div class="state ${warn ? 'warn' : ''}">${st}</div><div class="week">${wk}</div>`;
+  if (readUpReady(c)) { const nf = READ_FLOORS[c.rLv]; out += `<div class="banner"><b>🪜 Sali al piano ${c.rLv + 1}?</b><div class="small">${c.rChain} giorni di lettura di fila e quasi sempre oltre il piano: ormai è facile. Nuovo piano: ${floorText(nf)}. Decidi tu, e puoi sempre scendere.</div><div class="btns"><button class="btn gold" data-act="readup">Sì, salgo</button><button class="btn ghost" data-act="readno">Resto qui</button></div></div>`; }
+  out += `<div class="small dim" style="margin-top:8px">Serie tutta sua, come gli extra. Giornata di lettura +${READ_XP} XP e +${READ_GEM} 💎 · doppio del piano +${READ_X2_GEM} 💎 · triplo +${READ_X3_GEM} 💎 · ogni 7 giorni +${READ_WEEK_GEM} 💎, ogni 30 +${READ_MONTH_GEM} 💎.${c.rLv > 1 ? ` <button class="link inl" data-act="readdown">Scendi di piano</button>` : ''}</div></div>`;
+  return out;
+}
+function readAdd(n){
+  if (!(n >= 1 && n <= 999)) return;
+  const u = P_().readUnit || 'pag', a = calc();
+  const b = mutate(() => S.ev.push({t:'read', d:today(), u, n, ts:Date.now()}));
+  tone(SND.tap); confetti(!a.rToday.ok && b.rToday.ok ? 90 : 30, ['📚','📖']);
+  if (!a.rToday.ok && b.rToday.ok) toast(`📚 Giornata di lettura! Serie: ${xDays(b.rChain)}`);
+  else if (a.rToday.mult < 2 && b.rToday.mult >= 2) toast(`⭐ Doppio piano! +${READ_X2_GEM} 💎`);
+  else if (a.rToday.mult < 3 && b.rToday.mult >= 3) toast(`🌟 Triplo piano! +${READ_X3_GEM} 💎`);
+  if (!a.rToday.ok && b.rToday.ok && b.rChain >= 7 && b.rChain % 7 === 0) toast(`📚 ${b.rChain} giorni di lettura: +${b.rChain % 30 === 0 ? READ_MONTH_GEM : READ_WEEK_GEM} 💎`);
+  keepData();
+}
 function nextMini(m){ return Math.max(m + 1, Math.round(m * 1.2)); }
 function goldiReady(c){
   const h = P_().habit;
@@ -931,6 +1029,15 @@ function viewTrophies(c){
     const d = addD(T, -i), s = c.extras.get(d);
     if (s?.size) xl += `<div class="diary small"><span class="dim">${fmtDate(d)}</span> · ${EXTRA.filter(x => s.has(x.k)).map(x => extraOf(x.k, d).e).join(' ')} <span class="dim">${s.size}/${EXTRA.length}${s.size >= EXTRA_DAY ? ' ⚡' : ''}</span></div>`;
   }
+  let rc = '', rl = '';
+  for (let i = 0; i < 84; i++) {
+    const d = addD(start, i), e = c.reads.get(d);
+    rc += `<i class="${d > T ? 'future' : e?.ok ? (e.mult >= 3 ? 'r3' : e.mult >= 2 ? 'r2' : 'r1') : e ? 'r0' : ''} ${d===T?'today':''}" title="${fmtDate(d)}${e ? ` · ${readTxt(e)}` : ''}"></i>`;
+  }
+  for (let i = 0; i < 14; i++) {
+    const d = addD(T, -i), e = c.reads.get(d);
+    if (e) rl += `<div class="diary small"><span class="dim">${fmtDate(d)}</span> · ${readTxt(e)} ${e.ok ? (e.mult >= 3 ? '🌟' : e.mult >= 2 ? '⭐' : '✓') : '<span class="dim">sotto il piano</span>'}</div>`;
+  }
   return `${topbar(c)}<h2>🏆 Trofei</h2>
   <div class="stats"><div class="stat"><b>${c.best}</b><span>RECORD</span></div><div class="stat"><b>${c.total}</b><span>QUEST</span></div><div class="stat"><b>${c.epics}</b><span>EPICHE</span></div><div class="stat"><b>${c.bosses}</b><span>BOSS</span></div><div class="stat"><b>${c.shieldsUsed}</b><span>SCUDI USATI</span></div><div class="stat"><b>${c.badges.size}/${BADGES.length}</b><span>TROFEI</span></div></div>
   <div class="card"><b>⛓️ La catena · ultime 12 settimane</b><div class="heat">${cells}</div>
@@ -940,6 +1047,11 @@ function viewTrophies(c){
   <div class="heat">${xc}</div>
   <div class="legend"><span><i class="x1"></i>1-2</span><span><i class="x3"></i>3-4 · giornata extra</span><span><i class="x5"></i>5 su 5</span></div>
   <details><summary>📋 Gli extra degli ultimi 14 giorni</summary>${xl || '<p class="muted small">Ancora niente: gli extra li segni nella Home, sotto la fiamma.</p>'}</details></div>
+  <div class="card"><b>📚 Lettura · ultime 12 settimane</b>
+  <div class="stats" style="margin-top:8px"><div class="stat"><b>${c.rChain}</b><span>SERIE</span></div><div class="stat"><b>${c.rBest}</b><span>RECORD</span></div><div class="stat"><b>${c.rLv}</b><span>PIANO</span></div><div class="stat"><b>${c.rDays}</b><span>GIORNI</span></div><div class="stat"><b>${c.rPages}</b><span>PAGINE</span></div><div class="stat"><b>${c.rMins}</b><span>MINUTI</span></div></div>
+  <div class="heat">${rc}</div>
+  <div class="legend"><span><i class="r1"></i>fatta</span><span><i class="r2"></i>doppio</span><span><i class="r3"></i>triplo</span><span><i class="r0"></i>sotto il piano</span></div>
+  <details><summary>📋 Le letture degli ultimi 14 giorni</summary>${rl || '<p class="muted small">Ancora niente: le pagine o i minuti li segni nella Home.</p>'}</details></div>
   <div class="grid3">${b}</div>`;
 }
 function viewShop(c){
@@ -951,13 +1063,18 @@ function viewShop(c){
     else if (s.kind === 'gift' || !own) btn = `<button class="btn gold" data-act="buy" data-v="${s.id}" ${c.gems < s.cost ? 'disabled' : ''}>💎 ${s.cost}</button>`;
     else if (on && justBought.id === s.id && performance.now() < justBought.until) btn = `<span class="inuse">✓ In uso</span>`;
     else btn = on ? `<button class="btn ghost" data-act="unequip" data-v="${s.kind}">Togli</button>` : `<button class="btn" data-act="equip" data-v="${s.id}">Usa</button>`;
-    return `<div class="shop-item"><div class="se">${s.e}</div><div class="grow"><b>${s.n}</b>${s.d ? `<div class="small muted">${s.d}</div>` : own ? `<div class="small muted">${on ? 'In uso' : 'Nello zaino'}</div>` : ''}</div>${btn}</div>`;
+    return `<div class="shop-item"><div class="se">${s.e}</div><div class="grow"><b>${s.n}</b>${own ? `<span class="stag ${on ? 'on' : ''}">${on ? 'In uso' : 'Nello zaino'}</span>` : ''}<div class="small muted">${shopDesc(s)}</div></div>${btn}</div>`;
   }).join('');
-  return `${topbar(c)}<div class="buddy-zone">${buddyHTML(c, 96)}</div><h2>💎 Shop</h2><p class="muted small">Le gemme arrivano dai bauli, dai boss e dai trofei. Niente soldi veri, mai.</p><div class="card">${rows}</div>`;
+  const b = esc(P_().buddyName);
+  return `${topbar(c)}<div class="buddy-zone">${buddyHTML(c, 96)}</div><h2>💎 Shop</h2><p class="muted small">Le gemme arrivano dai bauli, dagli extra, dai boss e dai trofei. Niente soldi veri, mai.</p>
+  <div class="card small muted">🧢 Cappelli, ✨ aure e 🎨 temi: quello che compri resta tuo per sempre. Ne usi <b>uno per tipo</b> (un cappello, un'aura, un tema) e lo cambi quando vuoi con «Usa» e «Togli». Cappello e aura li porta ${b}: li vedi qui sopra e nella Home.</div>
+  <div class="card">${rows}</div>
+  <button class="link" data-act="suggest">💡 Qualcosa non è chiaro? Chiedi</button>`;
 }
 function viewMe(c){
   const p = P_();
   const all = S.ev.filter(e => (e.t === 'mood' && e.m) || (e.t === 'answer' && !e.skip && e.a)).slice().reverse();
+  const sugg = S.ev.filter(e => e.t === 'sugg').slice().reverse();
   const list = diaryAll ? all : all.slice(0, 40);
   const dia = list.map(e =>
     e.t === 'mood' ? `<div class="diary small"><span class="dim">${fmtDate(e.d)}</span> · umore ${MOODS.find(m => m.m === e.m)?.e || ''}</div>`
@@ -972,11 +1089,13 @@ function viewMe(c){
   <div class="card menu">
    <button class="btn ghost" data-act="editquest">✏️ Cambia i numeri della quest</button>
    <button class="btn ghost" data-act="remind">⏰ Promemoria</button>
+   <button class="btn ghost" data-act="suggest">💡 Suggerisci o chiedi aiuto</button>
    <button class="btn ghost" data-act="savegame">💾 Salva partita / altro dispositivo</button>
    <button class="btn ghost" data-act="install">📲 Installa l'app</button>
    <button class="btn ghost" data-act="sound">${S.set.sound ? '🔊 Suoni attivi' : '🔇 Suoni spenti'}</button>
    <button class="btn ghost" data-act="rewizard">🔁 Rifai il patto</button>
   </div>
+  ${sugg.length ? `<div class="card"><details><summary>💡 Le mie richieste (${sugg.length})</summary>${sugg.map(e => `<div class="diary small"><span class="dim">${fmtDate(e.d)}</span> · ${suggKindOf(e.k)[1]} ${esc(e.a)}</div>`).join('')}</details></div>` : ''}
   <div class="card"><details><summary>📓 Diario (tocca per aprire)</summary>
    <div class="small dim">Non va su internet: resta su questo dispositivo.</div>${dia || '<p class="muted small">Ancora vuoto: fai il check-in con il buddy.</p>'}
    ${all.length > 40 && !diaryAll ? `<button class="link" data-act="diaryall">Mostra tutto (${all.length})</button>` : ''}</details>
@@ -1024,6 +1143,27 @@ function openChest(){
   }});
   render();
 }
+function suggestModal(){
+  showModal(`<div class="mc left"><h2>💡 Suggerisci</h2>
+  <p class="small muted">Vuoi qualcosa in più nell'app, non capisci come funziona una cosa o qualcosa non va? Scrivilo qui. Parte su WhatsApp a chi ti ha dato l'app, e lo sistemiamo davvero.</p>
+  <div class="chips">${SUGG_KINDS.map(([k, e, l]) => `<button class="chip ${suggKind === k ? 'on' : ''}" data-act="suggkind" data-v="${k}" aria-pressed="${suggKind === k}">${e} ${l}</button>`).join('')}</div>
+  <textarea class="txt" id="sugg" maxlength="1000" placeholder="Per esempio: vorrei che… / non ho capito… / quando premo… succede…">${esc(suggDraft)}</textarea>
+  <button class="btn ok" data-act="suggsend">📲 Manda su WhatsApp</button>
+  <button class="btn ghost" data-act="suggcopy">📋 Copia il testo</button>
+  <p class="small dim">Nel messaggio ci sono solo il tuo testo, il tipo di richiesta, la versione dell'app, il livello e i giorni di fiamma. Il diario no, mai.</p>
+  <button class="link" data-act="close">Chiudi</button></div>`);
+}
+function suggText(a){
+  const c = calc(), k = suggKindOf(suggKind);
+  return `${k[1]} Level Up · ${k[2]}\nDa ${pname()} · ${fmtDate(c.T)} · v${VERSION} · LV ${c.lv} · ${xDays(c.chain)} di fiamma\n\n${a}`;
+}
+function suggTake(){
+  const a = ($('#sugg')?.value || '').trim();
+  if (!a) { toast('Scrivi qualcosa, anche due parole 🙂'); return null; }
+  S.ev.push({t:'sugg', d:today(), k:suggKind, a}); save();
+  suggDraft = '';
+  return suggText(a);
+}
 function helpModal(){
   showModal(`<div class="mc left"><h2>❓ Come funziona</h2>
   <p><b>✅ Quest:</b> la fai e premi FATTO. La versione mini (+10 XP) basta sempre; l'epica vale +25 XP e 2 colpi al boss.</p>
@@ -1034,8 +1174,10 @@ function helpModal(){
   <p><b>🎁 Baule:</b> uno al giorno dopo la quest. Gemme a sorpresa da spendere nello Shop.</p>
   <p><b>🃏 Carte:</b> le prime 10 quest sbloccano una carta ciascuna, poi una ogni 3, con un trucco da campione.</p>
   <p><b>🙂 Check-in:</b> come stai +5 XP, risposta nel diario +5 XP, giorno di squadra +5 XP.</p>
+  <p><b>💎 Shop:</b> cappelli e aure li indossa ${esc(P_().buddyName)}, i temi cambiano i colori dell'app. Uno per tipo, si cambiano con «Usa» e «Togli». Il regalo lo rende felice e basta: un ❤️ accanto al suo nome.</p>
+  <p><b>📚 Lettura:</b> segni le pagine o i minuti, scegli tu. Raggiunto il piano (all'inizio 1 pagina o 5 minuti) la giornata conta per la <b>serie lettura</b>: +${READ_XP} XP e +${READ_GEM} 💎; doppio del piano +${READ_X2_GEM} 💎, triplo +${READ_X3_GEM} 💎; ogni 7 giorni +${READ_WEEK_GEM} 💎, ogni 30 +${READ_MONTH_GEM} 💎. Dopo 7 giorni di fila l'app ti propone di salire di piano: decidi tu, e puoi sempre scendere.</p>
   <p><b>⚡ Extra:</b> 5 esercizi in più, quando vuoi: piegamenti di mattina, pomeriggio e sera, squat, e plank o addominali a giorni alterni. Ogni extra +${EXTRA_GEM} 💎 e +${EXTRA_XP} XP; tutti e 5 +${EXTRA_FULL_GEM} 💎. Con ${EXTRA_DAY} su 5 la giornata conta per la <b>serie extra</b>, che ha la sua catena e non tocca la fiamma: ogni 7 giorni di serie +${EXTRA_WEEK_GEM} 💎. Li ritrovi tutti in Trofei.</p>
-  <button class="btn" data-act="close">Capito</button></div>`);
+  <button class="btn" data-act="close">Capito</button><button class="btn ghost" data-act="suggest">💡 Non trovi la risposta? Chiedi</button></div>`);
 }
 const INSTALL_STEPS = `<ol><li>Apri questa pagina con <b>Safari</b>.</li><li>Tocca <b>•••</b> in basso a destra, poi <b>Condividi</b>. (Se vedi già il quadrato con la freccia in su, tocca quello.)</li><li>Scorri e scegli <b>Aggiungi alla schermata Home</b>. Se c'è l'interruttore «Apri come app web», lascialo acceso, poi tocca <b>Aggiungi</b>.</li><li>Da ora aprila dall'icona 🔥 sulla Home.</li></ol>`;
 function installModal(){
@@ -1086,6 +1228,7 @@ function cleanState(o){
   p.why = (Array.isArray(p.why) ? p.why : []).filter(g => WHYS.some(x => x[0] === g));
   p.obstacles = (Array.isArray(p.obstacles) ? p.obstacles : []).filter(k => OBST[k]);
   p.bundle = !!p.bundle; if (!TIMES.includes(p.remind)) p.remind = '18:00';
+  p.readUnit = p.readUnit === 'min' ? 'min' : 'pag'; p.book = str(p.book, 60);
   if (p.sig && !SIG_RE.test(p.sig)) p.sig = null;
   if (p.sigv && !validSigv(p.sigv)) p.sigv = null;
   if (p.signed && !isDay(p.signed)) p.signed = p.created;
@@ -1099,6 +1242,9 @@ function cleanState(o){
       case 'bonus': return {t:'bonus', d:e.d, xp:int(e.xp, 0, 60), why:str(e.why, 20)};
       case 'team': return {t:'team', d:e.d};
       case 'award': return {t:'award', d:e.d, id:str(e.id, 30)};
+      case 'read': return ['pag','min'].includes(e.u) && int(e.n, 0, 999) >= 1 ? {t:'read', d:e.d, u:e.u, n:int(e.n, 1, 999), ts:Number.isFinite(e.ts) ? e.ts : null} : null;
+      case 'readfloor': return {t:'readfloor', d:e.d, lv:int(e.lv, 1, READ_FLOORS.length)};
+      case 'sugg': return e.a ? {t:'sugg', d:e.d, k:suggKindOf(e.k)[0], a:str(e.a, 1000)} : null;
       case 'extra': return EXTRA.some(x => x.k === e.k) ? {t:'extra', d:e.d, k:e.k, ts:Number.isFinite(e.ts) ? e.ts : null} : null;
       case 'buy': { const s = shopItem(e.item); return s ? {t:'buy', d:e.d, item:s.id, cost:s.cost} : null; }
       default: return null;
@@ -1205,6 +1351,33 @@ const ACT = {
     mutate(() => S.ev.push({t:'done', d:y, epic:false, ts:null, late:true})); tone(SND.done);
   },
   chest: openChest,
+  suggest: suggestModal,
+  readunit: el => { if (!['pag','min'].includes(el.dataset.v)) return; P_().readUnit = el.dataset.v; save(); render(); tone(SND.tap); },
+  read: el => readAdd(+el.dataset.n),
+  readother: () => showModal(`<div class="mc"><h2>📚 ${(P_().readUnit || 'pag') === 'min' ? 'Quanti minuti?' : 'Quante pagine?'}</h2><input class="txt" id="rn" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off" aria-label="Numero"><button class="btn ok" data-act="readadd">Segna</button><button class="btn ghost" data-act="close">Annulla</button></div>`),
+  readadd: () => { const n = parseInt($('#rn')?.value); if (!(n >= 1 && n <= 999)) return toast('Scrivi un numero da 1 a 999'); MQ.length = 0; $('#modal')._opt = {}; nextModal(); readAdd(n); },
+  readundo: () => { const T = today(); let i = -1; S.ev.forEach((e, j) => { if (e.t === 'read' && e.d === T) i = j; }); if (i < 0) return; S.ev.splice(i, 1); save(); render(); toast('Tolta. Nessun problema.'); },
+  readup: () => { const c = calc(); if (c.rLv >= READ_FLOORS.length) return; mutate(() => S.ev.push({t:'readfloor', d:today(), lv:c.rLv + 1})); confetti(80, ['📚','🪜']); toast(`🪜 Piano ${c.rLv + 1}: ${floorText(READ_FLOORS[c.rLv])}`); },
+  readno: () => { S.ui.readNo = today(); save(); render(); toast('Ok, resti a questo piano. Decidi tu.'); },
+  readdown: () => { const c = calc(); if (c.rLv <= 1) return; mutate(() => S.ev.push({t:'readfloor', d:today(), lv:c.rLv - 1})); toast(`Piano ${c.rLv - 1}: ${floorText(READ_FLOORS[c.rLv - 2])}. Nessun problema.`); },
+  book: () => showModal(`<div class="mc"><h2>📖 Che libro stai leggendo?</h2><input class="txt" id="bk" maxlength="60" value="${esc(P_().book || '')}" autocomplete="off" placeholder="Titolo (se vuoi)" aria-label="Titolo del libro"><button class="btn" data-act="bookset">Salva</button><button class="btn ghost" data-act="close">Annulla</button></div>`),
+  bookset: () => { P_().book = ($('#bk')?.value || '').trim().slice(0, 60); save(); MQ.length = 0; $('#modal')._opt = {}; nextModal(); render(); },
+  reload: () => { try { navigator.serviceWorker?.getRegistration?.().then(g => g && g.update()).catch(() => {}); } catch(e) {} location.reload(); },
+  suggkind: el => { suggKind = el.dataset.v; document.querySelectorAll('[data-act="suggkind"]').forEach(b => { const on = b.dataset.v === suggKind; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); }); },
+  suggsend: () => {
+    const text = suggTake(); if (!text) return;
+    // un link vero, non window.open: sull'iPhone installata in Home apre WhatsApp senza blocchi
+    let ok = true;
+    try { const a = document.createElement('a'); a.href = 'https://wa.me/?text=' + encodeURIComponent(text); a.target = '_blank'; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove(); }
+    catch (e) { ok = false; }
+    MQ.length = 0; $('#modal')._opt = {}; nextModal(); render();
+    if (ok) toast('Scegli la chat e invia. La richiesta è salvata in Io ✓'); else copyText(text, 'WhatsApp non si apre da qui: testo copiato, incollalo tu ✓');
+  },
+  suggcopy: async () => {
+    const text = suggTake(); if (!text) return;
+    MQ.length = 0; $('#modal')._opt = {}; nextModal(); render();
+    if (!(await copyText(text, 'Copiato: incollalo dove vuoi ✓'))) toast('Non riesco a copiare: la trovi in Io → Le mie richieste');
+  },
   extra: el => {
     const k = el.dataset.v; if (!EXTRA.some(x => x.k === k)) return;
     const T = today(), r = el.getBoundingClientRect();
@@ -1293,6 +1466,7 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('input', e => {
   if (e.target.id === 'ans') { draft = {d: today(), a: e.target.value}; return; }
+  if (e.target.id === 'sugg') { suggDraft = e.target.value; return; }
   const el = e.target.closest('[data-field]'); if (!el || !W) return;
   const f = el.dataset.field;
   if (['mini','epic'].includes(f)) { const raw = el.value.trim(); W[f] = /^\d{1,4}$/.test(raw) ? +raw : 0; W['_bad_' + f] = !!raw && !W[f]; }
@@ -1578,6 +1752,20 @@ const WACT = {
   'wz-sigclear': () => { W.sigv = null; renderWizard(); },
 };
 
+/* ---------- nuova versione ---------- */
+let newVer = null;   // {v, nota} letto da version.json quando è diverso da VERSION
+async function checkVersion(){
+  if (!location.protocol.startsWith('http')) return;
+  try {
+    const r = await fetch('version.json?t=' + Date.now(), {cache:'no-store'}); if (!r.ok) return;
+    const j = await r.json();
+    if (!j || typeof j.v !== 'string' || j.v === VERSION || j.v === newVer?.v) return;
+    newVer = {v:j.v.slice(0, 12), nota:String(j.nota || '').slice(0, 120)};
+    if (S.profile && !W && !mOpen) render();
+    toast(`🆕 È uscita la versione ${newVer.v}: tocca per aggiornare`, () => ACT.reload());
+  } catch(e) {}
+}
+
 /* ---------- avvio ---------- */
 function checkDay(){
   // a modale aperto o mentre scrive aspetta: chiudere il modale ridisegna comunque sul giorno giusto
@@ -1588,7 +1776,7 @@ let hiddenAt = 0;
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { hiddenAt = Date.now(); return; }
   if (hiddenAt && Date.now() - hiddenAt > 30 * 60e3 && !W && !mOpen && !document.activeElement?.matches('textarea, input')) { location.reload(); return; }
-  checkDay();
+  checkDay(); checkVersion();
   navigator.serviceWorker?.getRegistration?.().then(g => g && g.update()).catch(() => {});
   if (AC) AC.suspend().then(() => AC.resume()).catch(() => { try { AC.close(); } catch(e) {} AC = null; });
 });
@@ -1606,7 +1794,7 @@ catch (err) {
     copyText(t, 'Dati copiati ✓');
   };
 }
-keepData();
+keepData(); checkVersion(); setInterval(checkVersion, 60 * 60e3);
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>
 </body>

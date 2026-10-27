@@ -1,5 +1,5 @@
 // Level Up: funziona anche offline. pubblica.py alza la versione a ogni pubblicazione.
-const C = 'levelup-v3';
+const C = 'levelup-v4';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(C).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 // Cancella solo le cache vecchie di Level Up: l'origine è condivisa con altri tool.
@@ -8,7 +8,7 @@ self.addEventListener('fetch', e => {
   const r = e.request; if (r.method !== 'GET') return;
   const u = new URL(r.url); if (u.origin !== location.origin) return;
   const root = new URL(self.registration.scope).pathname;
-  if (!u.pathname.startsWith(root) || u.pathname.endsWith('.ics')) return;
+  if (!u.pathname.startsWith(root) || u.pathname.endsWith('.ics') || u.pathname.endsWith('version.json')) return;
   if (r.mode === 'navigate') {
     if (u.pathname !== root && u.pathname !== root + 'index.html') return;
     // Rete prima, ma dopo 3 secondi risponde la copia locale; in cache va solo una pagina HTML valida.
