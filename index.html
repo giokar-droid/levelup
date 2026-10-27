@@ -165,6 +165,16 @@ input[type=file]{font-size:16px; margin-top:8px; max-width:100%; color:var(--mut
 .inuse{display:inline-block; font-weight:800; color:var(--ok); white-space:nowrap; padding:9px 4px}
 .care{border-color:var(--blue)}
 
+.xlist{display:flex; flex-direction:column; gap:8px; margin-top:10px}
+.xrow{display:flex; align-items:center; gap:10px; width:100%; background:var(--card2); border:2px solid var(--line); border-radius:14px; padding:8px 12px; min-height:54px; cursor:pointer; font-family:inherit; color:inherit; text-align:left; box-shadow:0 3px 0 rgba(0,0,0,.25); touch-action:manipulation}
+.xrow .xe{font-size:1.7rem; width:38px; text-align:center; line-height:1}
+.xrow b{display:block; font-size:1.05rem; line-height:1.15}
+.xrow small{display:block; font-size:.72rem; color:var(--dim); font-weight:800; text-transform:uppercase; letter-spacing:.06em}
+.xrow .xk{font-weight:800; white-space:nowrap; color:var(--gold)}
+.xrow.on{background:rgba(61,220,132,.14); border-color:var(--ok)}
+.xrow.on .xk{color:var(--ok); font-size:1.3rem}
+.heat i.x1,.legend i.x1{background:rgba(255,194,61,.28)} .heat i.x2{background:rgba(255,194,61,.45)} .heat i.x3,.legend i.x3{background:rgba(255,194,61,.65)} .heat i.x4{background:rgba(255,194,61,.85)} .heat i.x5,.legend i.x5{background:var(--gold)}
+
 /* grids */
 .grid3{display:grid; grid-template-columns:repeat(3,1fr); gap:10px}
 .kc{aspect-ratio:3/4; border-radius:16px; border:2px solid var(--line); background:var(--card2); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:8px 6px; text-align:center; font-weight:800; font-size:.82rem; line-height:1.15; cursor:pointer; position:relative; box-shadow:0 4px 0 rgba(0,0,0,.25); font-family:inherit; color:inherit}
@@ -239,7 +249,7 @@ ol{padding-left:1.3em; margin:.4em 0} ol li{margin:.25em 0; line-height:1.35}
 <canvas id="fx" aria-hidden="true"></canvas>
 <script>
 'use strict';
-const VERSION = '1.1';
+const VERSION = '1.2';
 const KEY = 'levelup.v1';
 const P = new URLSearchParams(location.search);
 const DEV = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
@@ -392,6 +402,11 @@ const BADGES = [
   {id:'tm7', e:'🤝', n:'Squadra d\'acciaio', d:'7 giorni di fila in squadra.', g:50, ok:s=>s.teamBest>=7},
   {id:'early',e:'🌄',n:'Mattiniero', d:'Una quest fatta fra le 5 e le 9 del mattino.', g:15, ok:s=>s.early>=1},
   {id:'lv5', e:'⭐', n:'Guerriero', d:'Livello 5 raggiunto.', g:30, ok:s=>s.lv>=5},
+  {id:'x1',  e:'⚡', n:'Extra!', d:'Il tuo primo esercizio extra.', g:10, ok:s=>s.xTotal>=1},
+  {id:'x5',  e:'🖐️', n:'Cinque su cinque', d:'Tutti e 5 gli extra nello stesso giorno.', g:20, ok:s=>s.xFull>=1},
+  {id:'x7',  e:'🔋', n:'Settimana extra', d:'7 giorni extra di fila.', g:40, ok:s=>s.xBest>=7},
+  {id:'x30', e:'🏋️', n:'Macchina da extra', d:'30 giorni extra di fila.', g:100, ok:s=>s.xBest>=30},
+  {id:'x100',e:'💥', n:'Cento extra', d:'100 esercizi extra in totale.', g:60, ok:s=>s.xTotal>=100},
 ];
 const MILESTONES = [3,7,14,21,30,50,66,100,150,200,365];
 
@@ -448,6 +463,20 @@ const SHOP = [
 ];
 const shopItem = (id, kind) => SHOP.find(s => s.id === id && (!kind || s.kind === kind));
 
+/* ---------- extra (richiesti da Massimo il 27.10.2026): gemme in più e una serie tutta loro ---------- */
+const EXTRA = [
+  {k:'am',    e:'🌅', n:'5 piegamenti', w:'mattina'},
+  {k:'pm',    e:'☀️', n:'5 piegamenti', w:'pomeriggio'},
+  {k:'eve',   e:'🌙', n:'5 piegamenti', w:'sera'},
+  {k:'squat', e:'🦵', n:'10 squat', w:'quando vuoi'},
+  {k:'core',  e:'🧱', n:'20 secondi di plank', w:'quando vuoi'},
+];
+const EXTRA_GEM = 2, EXTRA_XP = 2, EXTRA_FULL_GEM = 6, EXTRA_DAY = 3, EXTRA_WEEK_GEM = 25;
+// il quinto extra cambia a giorni alterni: plank un giorno, addominali l'altro
+const coreOf = d => dayIdx(d) % 2 ? {e:'🍫', n:'10 addominali'} : {e:'🧱', n:'20 secondi di plank'};
+const extraOf = (k, d) => { const x = EXTRA.find(x => x.k === k); return x && x.k === 'core' ? {...x, ...coreOf(d)} : x; };
+const xDays = n => `${n} ${n === 1 ? 'giorno' : 'giorni'}`;
+
 /* ---------- firma (tracciato vettoriale) ---------- */
 const SIG_RE = /^data:image\/png;base64,[A-Za-z0-9+/=]+$/;
 function validSigv(v){
@@ -485,7 +514,7 @@ async function keepData(){ try { if (navigator.storage?.persist && !(await navig
 /* ---------- motore del gioco ---------- */
 function calc(){
   const T = today();
-  const done = new Map(), buys = new Map(), team = new Set(), moodDays = new Set(), ansDays = new Set(), owned = new Set(), awarded = new Set();
+  const done = new Map(), buys = new Map(), team = new Set(), moodDays = new Set(), ansDays = new Set(), owned = new Set(), awarded = new Set(), extras = new Map();
   let chestG = 0, bonusXP = 0, spent = 0, early = 0, gifts = 0;
   for (const e of S.ev) {
     switch (e.t) {
@@ -496,6 +525,7 @@ function calc(){
       case 'bonus': bonusXP += e.xp || 0; break;
       case 'team': team.add(e.d); break;
       case 'award': awarded.add(e.id); break;
+      case 'extra': if (!extras.has(e.d)) extras.set(e.d, new Set()); extras.get(e.d).add(e.k); break;
       case 'buy': spent += e.cost || 0;
         if (e.item === 'shield') buys.set(e.d, (buys.get(e.d) || 0) + 1); else if (e.item === 'gift') gifts++; else owned.add(e.item); break;
     }
@@ -504,11 +534,17 @@ function calc(){
   let xp = bonusXP + moodDays.size*5 + ansDays.size*5;
   let chain = 0, best = 0, gap = 0, earned = 0, bought = 0, shieldsUsed = 0, total = 0, epics = 0, comebacks = 0, broken = false, lastKillWs = null;
   let teamChain = 0, teamBest = 0;
+  let xTotal = 0, xFull = 0, xChain = 0, xBest = 0, xGap = 0, xGems = 0;
   const weekHits = new Map(), bossWeeks = new Set(), shielded = new Set(), missed = new Set();
-  const keys = [...done.keys(), ...buys.keys()].sort();
+  const keys = [...done.keys(), ...buys.keys(), ...extras.keys()].sort();
   const start = keys.length ? keys[0] : T;
   for (let d = start; d <= T; d = addD(d, 1)) {
     const b = buys.get(d); if (b) bought = Math.min(3 - earned, bought + b);
+    // extra: serie a parte, stessa regola della fiamma (si azzera solo dopo due giorni saltati), senza scudi
+    const xn = extras.get(d)?.size || 0;
+    if (xn) { xTotal += xn; xp += xn * EXTRA_XP; xGems += xn * EXTRA_GEM; if (xn >= EXTRA.length) { xFull++; xGems += EXTRA_FULL_GEM; } }
+    if (xn >= EXTRA_DAY) { xChain++; xGap = 0; if (xChain > xBest) xBest = xChain; if (xChain % 7 === 0) xGems += EXTRA_WEEK_GEM; }
+    else if (d < T && xChain > 0) { xGap++; if (xGap >= 2) { xChain = 0; xGap = 0; } }
     const e = done.get(d);
     if (e) {
       if (broken) { comebacks++; broken = false; }
@@ -532,12 +568,12 @@ function calc(){
     }
   }
   const L = levelOf(xp);
-  const stats = {total, best, epics, comebacks, shieldsUsed, bosses:bossWeeks.size, moods:moodDays.size, teamBest, early, lv:L.lv};
+  const stats = {total, best, epics, comebacks, shieldsUsed, bosses:bossWeeks.size, moods:moodDays.size, teamBest, early, lv:L.lv, xTotal, xFull, xBest};
   const badgesNow = BADGES.filter(x => x.ok(stats)).map(x => x.id);
   const bossNow = [...bossWeeks].map(w => 'boss:' + w);
   const badges = new Set([...badgesNow, ...[...awarded].filter(id => BADGES.some(b => b.id === id))]);
   const bossIds = new Set([...bossNow, ...[...awarded].filter(id => id.startsWith('boss:'))]);
-  const gems = chestG + BADGES.filter(x => badges.has(x.id)).reduce((a, x) => a + x.g, 0) + bossIds.size*40 - spent;
+  const gems = chestG + BADGES.filter(x => badges.has(x.id)).reduce((a, x) => a + x.g, 0) + bossIds.size*40 + xGems - spent;
   const doneToday = done.get(T) || null;
   const ws = weekStart(T);
   return {
@@ -551,6 +587,8 @@ function calc(){
     ansToday: S.ev.find(e => e.t === 'answer' && e.d === T) || null,
     chestToday: S.ev.find(e => e.t === 'chest' && e.d === T) || null,
     cards: cardsFor(total),
+    extras, xToday: extras.get(T) || new Set(), xTotal, xFull, xChain, xBest, xGap,
+    xBrace: xChain > 0 && xGap === 1 && (extras.get(T)?.size || 0) < EXTRA_DAY,
   };
 }
 
@@ -807,6 +845,9 @@ function viewHome(c){
     <div class="state ${warn?'warn':''}">${st}</div><div class="week">${wk}</div>
     ${next ? `<div class="small dim" style="margin-top:8px">Prossimo traguardo: <b>${next} giorni di fiamma</b> (${next - c.chain === 1 ? 'ne manca 1' : `ne mancano ${next - c.chain}`})</div>` : ''}</div>`;
 
+  // extra
+  out += extraCard(c);
+
   // check-in
   if (!c.moodToday) {
     out += `<div class="card"><b>${esc(p.buddyName)}:</b> come stai oggi, ${pname()}?<div class="moods">${MOODS.map(m => `<button data-act="mood" data-v="${m.m}" aria-label="${m.l}">${m.e}<span>${m.l}</span></button>`).join('')}</div><div class="small dim" style="margin-top:6px">+5 XP · non va su internet, resta su questo dispositivo</div></div>`;
@@ -829,6 +870,27 @@ function viewHome(c){
       <div class="small dim" style="margin-top:6px">Giorno di squadra = la quest l'avete fatta tutti e due (+5 XP).</div></div>`;
   }
   return out;
+}
+function extraCard(c){
+  const T = c.T, n = c.xToday.size, N = EXTRA.length, full = n >= N, day = n >= EXTRA_DAY;
+  const rows = EXTRA.map(x => {
+    const o = extraOf(x.k, T), on = c.xToday.has(x.k);
+    return `<button class="xrow ${on ? 'on' : ''}" data-act="extra" data-v="${x.k}" aria-pressed="${on}"><span class="xe">${o.e}</span><span class="grow"><b>${o.n}</b><small>${x.w}</small></span><span class="xk">${on ? '✓' : `+${EXTRA_GEM} 💎`}</span></button>`;
+  }).join('');
+  let st, warn = false;
+  if (full) st = `🖐️ 5 su 5! Bonus +${EXTRA_FULL_GEM} 💎. Serie extra: ${xDays(c.xChain)}.`;
+  else if (day) st = `⚡ Giornata extra fatta (${n}/${N}). ${N - n === 1 ? 'Ne manca 1' : `Ne mancano ${N - n}`} per il bonus +${EXTRA_FULL_GEM} 💎.`;
+  else if (c.xBrace) { warn = true; st = `⚠️ Ieri niente extra: con ${EXTRA_DAY} su ${N} oggi la serie continua (${xDays(c.xChain)}). Se salti anche oggi, riparte da zero.`; }
+  else if (n) st = `${n}/${N} · con ${EXTRA_DAY} su ${N} la giornata conta per la serie extra.`;
+  else if (c.xBest > 0 && c.xChain === 0) st = `Serie extra ripartita da zero (record ${c.xBest}). Con ${EXTRA_DAY} su ${N} oggi riparte da 1.`;
+  else st = `Quando vuoi, anche a pezzi. Con ${EXTRA_DAY} su ${N} la giornata conta per la serie extra.`;
+  const wk = ['L','M','M','G','V','S','D'].map((l, i) => {
+    const d = addD(c.ws, i), k = c.extras.get(d)?.size || 0;
+    return `<div class="wd ${k >= N ? 'epic' : k >= EXTRA_DAY ? 'done' : ''} ${d === T ? 'today' : ''}">${l}<b>${k || ''}</b></div>`;
+  }).join('');
+  return `<div class="card"><div class="row"><div class="qe">⚡</div><div class="grow"><div class="label">Extra di oggi</div><b style="font-size:1.2rem">Serie extra: ${xDays(c.xChain)}</b><div class="small muted">record ${c.xBest} · ${c.xTotal} extra in totale</div></div></div>
+    <div class="xlist">${rows}</div><div class="state ${warn ? 'warn' : ''}">${st}</div><div class="week">${wk}</div>
+    <div class="small dim" style="margin-top:8px">Gli extra non toccano la fiamma 🔥: hanno la loro serie. Ogni extra +${EXTRA_GEM} 💎 e +${EXTRA_XP} XP · 5 su 5 +${EXTRA_FULL_GEM} 💎 · ogni 7 giorni di serie +${EXTRA_WEEK_GEM} 💎.</div></div>`;
 }
 function nextMini(m){ return Math.max(m + 1, Math.round(m * 1.2)); }
 function goldiReady(c){
@@ -859,10 +921,25 @@ function viewTrophies(c){
     cells += `<i class="${cls} ${d===T?'today':''}" title="${fmtDate(d)}"></i>`;
   }
   const b = BADGES.map(x => `<button class="badge ${c.badges.has(x.id)?'':'locked'}" data-act="badge" data-v="${x.id}"><span class="be">${x.e}</span>${x.n}</button>`).join('');
+  let xc = '';
+  for (let i = 0; i < 84; i++) {
+    const d = addD(start, i), k = c.extras.get(d)?.size || 0;
+    xc += `<i class="${d > T ? 'future' : k ? 'x' + Math.min(5, k) : ''} ${d===T?'today':''}" title="${fmtDate(d)}${k ? ` · ${k} extra` : ''}"></i>`;
+  }
+  let xl = '';
+  for (let i = 0; i < 14; i++) {
+    const d = addD(T, -i), s = c.extras.get(d);
+    if (s?.size) xl += `<div class="diary small"><span class="dim">${fmtDate(d)}</span> · ${EXTRA.filter(x => s.has(x.k)).map(x => extraOf(x.k, d).e).join(' ')} <span class="dim">${s.size}/${EXTRA.length}${s.size >= EXTRA_DAY ? ' ⚡' : ''}</span></div>`;
+  }
   return `${topbar(c)}<h2>🏆 Trofei</h2>
   <div class="stats"><div class="stat"><b>${c.best}</b><span>RECORD</span></div><div class="stat"><b>${c.total}</b><span>QUEST</span></div><div class="stat"><b>${c.epics}</b><span>EPICHE</span></div><div class="stat"><b>${c.bosses}</b><span>BOSS</span></div><div class="stat"><b>${c.shieldsUsed}</b><span>SCUDI USATI</span></div><div class="stat"><b>${c.badges.size}/${BADGES.length}</b><span>TROFEI</span></div></div>
   <div class="card"><b>⛓️ La catena · ultime 12 settimane</b><div class="heat">${cells}</div>
   <div class="legend"><span><i style="background:var(--fire)"></i>fatta</span><span><i style="background:var(--gold)"></i>epica</span><span><i style="background:var(--blue)"></i>scudo</span><span><i class="miss"></i>saltata</span></div></div>
+  <div class="card"><b>⚡ Extra · ultime 12 settimane</b>
+  <div class="stats" style="margin-top:8px"><div class="stat"><b>${c.xChain}</b><span>SERIE EXTRA</span></div><div class="stat"><b>${c.xBest}</b><span>RECORD</span></div><div class="stat"><b>${c.xTotal}</b><span>EXTRA FATTI</span></div></div>
+  <div class="heat">${xc}</div>
+  <div class="legend"><span><i class="x1"></i>1-2</span><span><i class="x3"></i>3-4 · giornata extra</span><span><i class="x5"></i>5 su 5</span></div>
+  <details><summary>📋 Gli extra degli ultimi 14 giorni</summary>${xl || '<p class="muted small">Ancora niente: gli extra li segni nella Home, sotto la fiamma.</p>'}</details></div>
   <div class="grid3">${b}</div>`;
 }
 function viewShop(c){
@@ -957,6 +1034,7 @@ function helpModal(){
   <p><b>🎁 Baule:</b> uno al giorno dopo la quest. Gemme a sorpresa da spendere nello Shop.</p>
   <p><b>🃏 Carte:</b> le prime 10 quest sbloccano una carta ciascuna, poi una ogni 3, con un trucco da campione.</p>
   <p><b>🙂 Check-in:</b> come stai +5 XP, risposta nel diario +5 XP, giorno di squadra +5 XP.</p>
+  <p><b>⚡ Extra:</b> 5 esercizi in più, quando vuoi: piegamenti di mattina, pomeriggio e sera, squat, e plank o addominali a giorni alterni. Ogni extra +${EXTRA_GEM} 💎 e +${EXTRA_XP} XP; tutti e 5 +${EXTRA_FULL_GEM} 💎. Con ${EXTRA_DAY} su 5 la giornata conta per la <b>serie extra</b>, che ha la sua catena e non tocca la fiamma: ogni 7 giorni di serie +${EXTRA_WEEK_GEM} 💎. Li ritrovi tutti in Trofei.</p>
   <button class="btn" data-act="close">Capito</button></div>`);
 }
 const INSTALL_STEPS = `<ol><li>Apri questa pagina con <b>Safari</b>.</li><li>Tocca <b>•••</b> in basso a destra, poi <b>Condividi</b>. (Se vedi già il quadrato con la freccia in su, tocca quello.)</li><li>Scorri e scegli <b>Aggiungi alla schermata Home</b>. Se c'è l'interruttore «Apri come app web», lascialo acceso, poi tocca <b>Aggiungi</b>.</li><li>Da ora aprila dall'icona 🔥 sulla Home.</li></ol>`;
@@ -1021,6 +1099,7 @@ function cleanState(o){
       case 'bonus': return {t:'bonus', d:e.d, xp:int(e.xp, 0, 60), why:str(e.why, 20)};
       case 'team': return {t:'team', d:e.d};
       case 'award': return {t:'award', d:e.d, id:str(e.id, 30)};
+      case 'extra': return EXTRA.some(x => x.k === e.k) ? {t:'extra', d:e.d, k:e.k, ts:Number.isFinite(e.ts) ? e.ts : null} : null;
       case 'buy': { const s = shopItem(e.item); return s ? {t:'buy', d:e.d, item:s.id, cost:s.cost} : null; }
       default: return null;
     }
@@ -1126,6 +1205,18 @@ const ACT = {
     mutate(() => S.ev.push({t:'done', d:y, epic:false, ts:null, late:true})); tone(SND.done);
   },
   chest: openChest,
+  extra: el => {
+    const k = el.dataset.v; if (!EXTRA.some(x => x.k === k)) return;
+    const T = today(), r = el.getBoundingClientRect();
+    if (calc().xToday.has(k)) { S.ev = S.ev.filter(e => !(e.t === 'extra' && e.d === T && e.k === k)); save(); render(); toast('Tolto. Nessun problema.'); return; }
+    const b = mutate(() => S.ev.push({t:'extra', d:T, k, ts:Date.now()}));
+    tone(SND.tap); floatXP(`+${EXTRA_GEM} 💎`, r);
+    const n = b.xToday.size;
+    if (n >= EXTRA.length) { tone(SND.chest); confetti(120, ['⚡','💎']); toast(`🖐️ 5 su 5! Bonus +${EXTRA_FULL_GEM} 💎`); }
+    else if (n === EXTRA_DAY) { confetti(70, ['⚡']); toast(`⚡ Giornata extra! Serie: ${xDays(b.xChain)}`); }
+    if (n === EXTRA_DAY && b.xChain >= 7 && b.xChain % 7 === 0) toast(`🔋 ${b.xChain} giorni di serie extra: +${EXTRA_WEEK_GEM} 💎`);
+    keepData();
+  },
   mood: el => { if (calc().moodToday) return; mutate(() => S.ev.push({t:'mood', d:today(), m:+el.dataset.v})); tone(SND.tap); },
   answer: () => {
     const a = ($('#ans')?.value || '').trim(); if (!a) { toast('Scrivi qualcosa, anche due parole 🙂'); return; }
