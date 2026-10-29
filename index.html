@@ -182,6 +182,16 @@ input[type=file]{font-size:16px; margin-top:8px; max-width:100%; color:var(--mut
 .hstep .hv{min-width:52px; padding:0 6px; font-size:1.05rem; background:var(--bg2)}
 .xrow.on .hstep .hv{border-color:var(--ok)}
 select.txt{appearance:auto; -webkit-appearance:auto; height:48px}
+.hbar{position:relative; height:10px; border-radius:99px; background:var(--bg2); overflow:hidden; margin-top:2px}
+.hbar i{display:block; height:100%; background:linear-gradient(90deg,var(--acc),var(--blue)); border-radius:99px; transition:width .3s}
+.xrow.on .hbar i{background:var(--ok)} .xrow.epic .hbar i{background:var(--gold)}
+.hbar s{position:absolute; top:0; bottom:0; width:2px; background:#fff; opacity:.75; text-decoration:none}
+.hmeta{display:flex; gap:10px; align-items:center; flex-wrap:wrap} .hmeta .link.inl{color:var(--dim)}
+.hchunks{margin:2px -4px 0}
+.chip.sm{min-height:38px; padding:6px 10px; font-size:.95rem}
+.chip.gold{background:var(--gold); border-color:var(--gold); color:#2a1d00}
+.hsay{color:var(--muted); font-style:italic}
+.htimer{display:flex; align-items:center; gap:8px; flex-wrap:wrap} .htimer b{font-size:1.5rem; font-variant-numeric:tabular-nums} .htimer .btn{width:auto; margin:0 0 0 auto; padding:8px 12px; min-height:40px; font-size:.95rem}
 .hitem{padding:10px 0; border-bottom:2px solid var(--line)} .hitem:last-child{border-bottom:0} .hitem .se{font-size:34px; width:44px; text-align:center}
 .hbtns{display:flex; gap:8px; margin-top:8px} .hbtns .btn{margin:0; padding:8px; font-size:.95rem; min-height:40px}
 .xrow.on .xk{color:var(--ok); font-size:1.3rem}
@@ -266,7 +276,7 @@ ol{padding-left:1.3em; margin:.4em 0} ol li{margin:.25em 0; line-height:1.35}
 <canvas id="fx" aria-hidden="true"></canvas>
 <script>
 'use strict';
-const VERSION = '2.0';
+const VERSION = '2.1';
 const KEY = 'levelup.v1';
 const P = new URLSearchParams(location.search);
 const DEV = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
@@ -514,12 +524,15 @@ const xDays = n => `${n} ${n === 1 ? 'giorno' : 'giorni'}`;
 
 /* ---------- più abitudini (2.0, profilo Adulto): core = fiamma, extra = gemme e serie extra, ognuna con la sua serie ---------- */
 const CATALOG = [
-  {id:'chiamate',  e:'📞', n:'Chiamate outreach',        role:'core',  type:'num', unit:'chiamate',    one:'chiamata',    mini:1,    epic:5,    step:1,    slot:'any'},
-  {id:'cena',      e:'🍽️', n:'Cena pulita, niente alcol', role:'core',  type:'bin', slot:'eve'},
+  {id:'pushup_freccia', e:'🏹', n:'Push-up a freccia',    role:'core',  type:'num', unit:'ripetizioni', one:'ripetizione', mini:5,    epic:8,    step:1,    slot:'am'},
+  {id:'acqua_am',  e:'🥤', n:'Bicchiere d\'acqua al risveglio', role:'core', type:'bin', slot:'am'},
   {id:'pesata',    e:'⚖️', n:'Pesata a digiuno',         role:'core',  type:'bin', slot:'am'},
-  {id:'lavoro',    e:'🎯', n:'Lavoro deliberato',        role:'extra', type:'num', unit:'minuti',      one:'minuto',      mini:200,  epic:400,  step:25,   slot:'any'},
-  {id:'prep',      e:'📝', n:'Prep call script',         role:'extra', type:'num', unit:'minuti',      one:'minuto',      mini:15,   epic:30,   step:5,    slot:'am'},
-  {id:'passi',     e:'🚶', n:'Passi',                    role:'extra', type:'num', unit:'passi',       one:'passo',       mini:5000, epic:7000, step:1000, slot:'eve'},
+  {id:'integ_am',  e:'💊', n:'Integratori mattina',      role:'core',  type:'bin', slot:'am'},
+  {id:'chiamate',  e:'📞', n:'Chiamate outreach',        role:'goal',  type:'num', unit:'chiamate',    one:'chiamata',    mini:1,    epic:5,    step:1,    slot:'any'},
+  {id:'lavoro',    e:'🎯', n:'Lavoro deliberato',        role:'goal',  type:'num', unit:'minuti',      one:'minuto',      mini:200,  epic:400,  step:25,   slot:'any'},
+  {id:'prep',      e:'📝', n:'Prep call script',         role:'goal',  type:'num', unit:'minuti',      one:'minuto',      mini:15,   epic:30,   step:5,    slot:'am'},
+  {id:'passi',     e:'🚶', n:'Passi',                    role:'goal',  type:'num', unit:'passi',       one:'passo',       mini:5000, epic:7000, step:1000, slot:'eve'},
+  {id:'cena',      e:'🍽️', n:'Cena pulita, niente alcol', role:'extra', type:'bin', slot:'eve'},
   {id:'acqua',     e:'💧', n:'Acqua',                    role:'extra', type:'num', unit:'litri',       one:'litro',       mini:1.5,  epic:2,    step:0.25, slot:'any'},
   {id:'sonno',     e:'😴', n:'Sonno',                    role:'extra', type:'num', unit:'ore',         one:'ora',         mini:7,    epic:8,    step:0.5,  slot:'am'},
   {id:'pushup_am', e:'💪', n:'Push-up mattina',          role:'extra', type:'num', unit:'ripetizioni', one:'ripetizione', mini:15,   epic:24,   step:5,    slot:'am'},
@@ -529,10 +542,10 @@ const CATALOG = [
   {id:'circ_am',   e:'🔥', n:'Circuito mattina',         role:'extra', type:'num', unit:'minuti',      one:'minuto',      mini:10,   epic:15,   step:5,    slot:'am'},
   {id:'circ_pm',   e:'🌙', n:'Circuito sera',            role:'extra', type:'num', unit:'minuti',      one:'minuto',      mini:10,   epic:15,   step:5,    slot:'eve'},
   {id:'plank',     e:'🧘', n:'Plank e core',             role:'extra', type:'bin', slot:'any'},
-  {id:'integ_am',  e:'💊', n:'Integratori mattina',      role:'extra', type:'bin', slot:'am'},
   {id:'integ_pm',  e:'💊', n:'Integratori sera',         role:'extra', type:'bin', slot:'eve'},
 ];
-const CORE_MAX = 3, HABITS_MAX = 30, X_RATIO = 0.6;
+const CORE_MAX = 4, GOAL_MAX = 5, HABITS_MAX = 30, X_RATIO = 0.6, GOAL_XP = 5, GOAL_GEM = 3, GOAL_EPIC_GEM = 6, GOAL_FULL_GEM = 10, GOAL_WEEK_GEM = 25;
+const ROLES = {core:'atomica', goal:'traguardo', extra:'extra'};
 const SLOTS = {am:'mattina', pm:'pomeriggio', eve:'sera', any:'quando vuoi'};
 const SLOT_ORDER = {am:0, pm:1, eve:2, any:3};
 const isMulti = () => Array.isArray(P_()?.habits) && P_().habits.length > 0;
@@ -544,6 +557,24 @@ const hLine = (h, n) => h.type === 'bin' ? h.n : `${h.n}: ${hUnit(n ?? h.mini, h
 const hNext = h => { const s = h.step || 1; return Math.max(h.mini + s, Math.round(h.mini * 1.2 / s) * s); };
 const hById = id => (P_()?.habits || []).find(h => h.id === id);
 const sortH = a => a.slice().sort((x, y) => (SLOT_ORDER[x.slot] ?? 3) - (SLOT_ORDER[y.slot] ?? 3));
+// una quest a numero è un traguardo della giornata: si fa a pezzi (chunk), non in un colpo
+const isTimerH = h => h.type === 'num' && /^min/i.test(h.unit || '');
+const hChunks = h => { const u = (h.unit || '').toLowerCase(), s = h.step || 1; if (/^min/.test(u)) return [5, 10, 15, 25]; if (/^pass/.test(u)) return [500, 1000, 2500]; return [...new Set([s, s * 2, s * 5].map(x => Math.round(x * 100) / 100))]; };
+function hProg(h, v){
+  v = v || 0; const mini = h.mini, epic = h.epic > mini ? h.epic : 0;
+  if (v < mini) return {stage:'mini', pct:Math.floor(100 * v / mini), rest:Math.round((mini - v) * 100) / 100, target:mini};
+  if (epic && v < epic) return {stage:'epica', pct:Math.floor(100 * v / epic), rest:Math.round((epic - v) * 100) / 100, target:epic};
+  return {stage:epic ? 'oltre' : 'fatta', pct:100, rest:0, target:epic || mini};
+}
+const START_LINES = ['Parti dal chunk più piccolo: iniziare è la parte difficile.', 'Cinque minuti adesso valgono più di un\'ora domani.', 'Non serve la voglia: serve il primo chunk. La voglia arriva dopo.', 'Il primo pezzo è il più pesante. Gli altri scivolano.'];
+function hSay(h, v, T){
+  const p = hProg(h, v), u = h.unit || 'volte';
+  if (!v) return byDay(START_LINES, T);
+  if (p.stage === 'mini') return p.pct < 50 ? `Sei al ${p.pct} %: un altro chunk e passi la metà.` : `${p.pct} %, ci sei quasi: mancano ${fmtN(p.rest)} ${u}.`;
+  if (p.stage === 'epica') return `Mini fatta ✓. Verso l'epica sei al ${p.pct} %: mancano ${fmtN(p.rest)} ${u}, ma è un bonus.`;
+  return p.stage === 'oltre' ? 'Epica! Oltre non serve: domani si rifà.' : 'Fatta ✓. Il resto della giornata è tuo.';
+}
+function timerLeft(tm){ const s = Math.max(0, Math.round((tm.start + tm.min * 60e3 - Date.now()) / 1000)); return `${Math.floor(s / 60)}:${pad(s % 60)}`; }
 
 /* ---------- lettura (chiesta il 27.10.2026): pagine o minuti a scelta, serie a parte, piano che sale solo se lo decide lui ---------- */
 const READ_FLOORS = [{p:1,m:5},{p:3,m:8},{p:5,m:10},{p:8,m:15},{p:12,m:20},{p:15,m:25},{p:20,m:30}];
@@ -577,7 +608,7 @@ function norm(){
   S.v = 1; S.profile ||= null; S.ev ||= []; S.eq ||= {}; S.set ||= {sound:true}; S.ui ||= {}; S.ui.tab ||= 'home'; S.ui.seen ||= 0;
   if (S.profile && typeof cleanState === 'function') {
     // anche i dati già salvati passano dalla stessa pulizia dell'import; i flag locali dell'interfaccia restano
-    try { const ui = S.ui; S = cleanState(S); for (const k of ['noInstall','safariOk','goldiNo','readNo','hNo','tab']) if (ui[k] !== undefined) S.ui[k] = ui[k]; } catch(e) {}
+    try { const ui = S.ui; S = cleanState(S); for (const k of ['noInstall','safariOk','goldiNo','readNo','hNo','timer','tab']) if (ui[k] !== undefined) S.ui[k] = ui[k]; } catch(e) {}
   }
   const h = S.profile?.habit;
   if (h) { if (h.emoji === '\u{1FAA2}') h.emoji = '🦘'; if (!h.one && HABITS[h.key]) h.one = HABITS[h.key].one; }
@@ -591,7 +622,8 @@ async function keepData(){ try { if (navigator.storage?.persist && !(await navig
 function calc(){
   const T = today();
   const done = new Map(), buys = new Map(), team = new Set(), moodDays = new Set(), ansDays = new Set(), owned = new Set(), awarded = new Set(), extras = new Map(), reads = new Map(), floors = new Map(), hv = new Map(), hpEv = [];
-  const multi = isMulti(), H = multi ? P_().habits : [], xNday = new Map(), hstats = new Map(), pausedNow = new Set();
+  const multi = isMulti(), H = multi ? P_().habits : [], xNday = new Map(), hstats = new Map(), pausedNow = new Set(), gDay = new Map();
+  let gXp = 0, gGems = 0, gChain = 0, gBest = 0, gGap = 0, gDays = 0;
   let chestG = 0, bonusXP = 0, spent = 0, early = 0, gifts = 0;
   for (const e of S.ev) {
     switch (e.t) {
@@ -620,8 +652,17 @@ function calc(){
     for (let d = d0; d <= T; d = addD(d, 1)) {
       while (pi < hpEv.length && hpEv[pi].d <= d) { if (hpEv[pi].on) paused.add(hpEv[pi].id); else paused.delete(hpEv[pi].id); pi++; }
       const vals = hv.get(d) || new Map(), act = H.filter(h => !paused.has(h.id));
-      const core = act.filter(h => h.role === 'core'), ex = act.filter(h => h.role === 'extra');
+      const core = act.filter(h => h.role === 'core'), ex = act.filter(h => h.role === 'extra'), goals = act.filter(h => h.role === 'goal');
       const val = h => vals.get(h.id)?.v || 0;
+      // traguardi della giornata: ognuno alla mini premia; tutti alla mini = giornata piena, serie traguardi
+      if (goals.length) {
+        const gd = goals.filter(h => hDone(h, val(h))), ge = gd.filter(h => hEpic(h, val(h)));
+        gXp += gd.length * GOAL_XP; gGems += gd.length * GOAL_GEM + ge.length * GOAL_EPIC_GEM;
+        const full = gd.length === goals.length;
+        if (full) { gDays++; gGems += GOAL_FULL_GEM; gChain++; gGap = 0; if (gChain > gBest) gBest = gChain; if (gChain % 7 === 0) gGems += GOAL_WEEK_GEM; }
+        else if (d < T && gChain > 0) { gGap++; if (gGap >= 2) { gChain = 0; gGap = 0; } }
+        gDay.set(d, {n:gd.length, N:goals.length, full});
+      }
       if (core.length && core.every(h => hDone(h, val(h)))) {
         const nums = core.filter(h => h.type === 'num' && h.epic > 0);
         const ts = core.reduce((a, h) => Math.max(a, vals.get(h.id)?.ts || 0), 0) || null;
@@ -639,7 +680,7 @@ function calc(){
     }
   }
   for (const e of done.values()) if (e.ts) { const hh = new Date(e.ts).getHours(); if (hh >= 5 && hh < 9) early++; }
-  let xp = bonusXP + moodDays.size*5 + ansDays.size*5;
+  let xp = bonusXP + moodDays.size*5 + ansDays.size*5 + gXp;
   let chain = 0, best = 0, gap = 0, earned = 0, bought = 0, shieldsUsed = 0, total = 0, epics = 0, comebacks = 0, broken = false, lastKillWs = null;
   let teamChain = 0, teamBest = 0;
   let xTotal = 0, xFull = 0, xChain = 0, xBest = 0, xGap = 0, xGems = 0;
@@ -677,7 +718,7 @@ function calc(){
       xp += (e.epic ? 25 : 10) + Math.min(10, Math.floor(chain/7));
       if (chain % 7 === 0 && earned < 2 && earned + bought < 3) earned++;
       if (chain > best) best = chain;
-      const ws = weekStart(d), prev = weekHits.get(ws) || 0, hit = prev + (e.epic ? 2 : 1) + (multi && xFullDay ? 1 : 0);
+      const ws = weekStart(d), prev = weekHits.get(ws) || 0, hit = prev + (e.epic ? 2 : 1) + (multi && xFullDay ? 1 : 0) + (multi && gDay.get(d)?.full ? 1 : 0);
       weekHits.set(ws, hit);
       if (prev < BOSS_HP && hit >= BOSS_HP) { bossWeeks.add(ws); xp += 50; lastKillWs = ws; }
       if (team.has(d)) { teamChain++; xp += 5; teamBest = Math.max(teamBest, teamChain); } else if (d < T) teamChain = 0;
@@ -698,7 +739,7 @@ function calc(){
   const bossNow = [...bossWeeks].map(w => 'boss:' + w);
   const badges = new Set([...badgesNow, ...[...awarded].filter(id => BADGES.some(b => b.id === id))]);
   const bossIds = new Set([...bossNow, ...[...awarded].filter(id => id.startsWith('boss:'))]);
-  const gems = chestG + BADGES.filter(x => badges.has(x.id)).reduce((a, x) => a + x.g, 0) + bossIds.size*40 + xGems + rGems - spent;
+  const gems = chestG + BADGES.filter(x => badges.has(x.id)).reduce((a, x) => a + x.g, 0) + bossIds.size*40 + xGems + rGems + gGems - spent;
   const doneToday = done.get(T) || null;
   const ws = weekStart(T);
   return {
@@ -715,6 +756,7 @@ function calc(){
     extras, xToday: extras.get(T) || new Set(), xTotal, xFull, xChain, xBest, xGap,
     xBrace: xChain > 0 && xGap === 1 && (extras.get(T)?.size || 0) < (multi ? Math.max(1, Math.ceil((xNday.get(T) || 0) * X_RATIO)) : EXTRA_DAY),
     multi, H, hstats, pausedNow, hvToday: hv.get(T) || new Map(),
+    gDay, gToday: gDay.get(T) || {n:0, N:0, full:false}, gChain, gBest, gDays, gGap, gBrace: gChain > 0 && gGap === 1 && !gDay.get(T)?.full,
     xN: multi ? (xNday.get(T) || 0) : EXTRA.length, xNeed: multi ? Math.max(1, Math.ceil((xNday.get(T) || 0) * X_RATIO)) : EXTRA_DAY,
     reads, rToday: reads.get(T) || {p:0, m:0, ok:false, mult:0}, rChain, rBest, rGap, rLv, rFloor: READ_FLOORS[rLv - 1], rDays, rPages, rMins, rDouble, rTriple, rMaxLv, rLvSince,
     rBrace: rChain > 0 && rGap === 1 && !reads.get(T)?.ok,
@@ -839,6 +881,22 @@ function moodReply(c, m){
 
 function bubbleText(c){
   const p = P_(), name = pname(), line = byDay(LINES, c.T);
+  if (c.multi) {
+    const act = c.H.filter(h => !c.pausedNow.has(h.id)), core = sortH(act.filter(h => h.role === 'core')), goals = sortH(act.filter(h => h.role === 'goal')), val = h => c.hvToday.get(h.id)?.v || 0;
+    const low = c.moodToday?.m && c.moodToday.m <= 2;
+    if (c.total === 0 && !act.some(h => val(h))) return `Eccomi, ${name}! 🎉 Oggi: ${core.length} atomiche${goals.length ? ` e ${goals.length} traguardi a pezzi` : ''}. Prima le atomiche: due minuti e la fiamma è accesa.`;
+    if (!c.doneToday && !low && core.length) {
+      const left = core.filter(h => !hDone(h, val(h)));
+      if (left.length < core.length || goals.some(h => val(h))) return `${greet()}, ${name}! ${left.length === 1 ? `Manca solo «${esc(left[0].n)}»` : `Mancano ${left.length} atomiche`} e la fiamma è accesa: due minuti.`;
+      if (!c.brace && !c.dead) return `${greet()}, ${name}! Prima le ${core.length} atomiche: due minuti e la fiamma è accesa. Il resto viene dopo.`;
+    }
+    if (c.doneToday && !low && goals.length) {
+      const going = goals.filter(h => val(h) > 0 && !hDone(h, val(h))).sort((a, b) => hProg(b, val(b)).pct - hProg(a, val(a)).pct);
+      if (going.length) { const h = going[0]; return `Fiamma accesa ✓. «${esc(h.n)}» al ${hProg(h, val(h)).pct} %. ${hSay(h, val(h), c.T)}`; }
+      const todo = goals.filter(h => !hDone(h, val(h)));
+      if (todo.length) return `Fiamma accesa ✓. Ora i traguardi, un chunk alla volta: parti da «${esc(todo[0].n)}», ${esc(byDay(START_LINES, c.T)).toLowerCase()}`;
+    }
+  }
   if (c.total === 0) return `Eccomi, ${name}! 🎉 Ora la tua prima quest: <b>${esc(questLine())}</b>. Adesso, finché sei carico.`;
   if (c.doneToday) {
     if (c.total === 1) return `PRIMA QUEST FATTA! È la più importante di tutte: adesso sei ufficialmente in gioco.`;
@@ -978,7 +1036,8 @@ function viewHome(c){
     <div class="state ${warn?'warn':''}">${st}</div><div class="week">${wk}</div>
     ${next ? `<div class="small dim" style="margin-top:8px">Prossimo traguardo: <b>${next} giorni di fiamma</b> (${next - c.chain === 1 ? 'ne manca 1' : `ne mancano ${next - c.chain}`})</div>` : ''}</div>`;
 
-  // extra e lettura
+  // traguardi, extra e lettura
+  if (c.multi) out += goalCard(c);
   out += extraCard(c);
   out += readCard(c);
 
@@ -1031,7 +1090,17 @@ function hrow(h, c, big){
   const v = c.hvToday.get(h.id)?.v || 0, done = hDone(h, v), epic = hEpic(h, v);
   const tag = h.role === 'extra' ? ` · +${EXTRA_GEM} 💎` : '';
   if (h.type === 'bin') return `<button class="xrow ${done ? 'on' : ''} ${big ? 'big' : ''}" data-act="htoggle" data-id="${h.id}" aria-pressed="${done}"><span class="xe">${h.e}</span><span class="grow"><b>${esc(h.n)}</b><small>${SLOTS[h.slot] || ''}${tag}</small></span><span class="xk">${done ? '✓' : '○'}</span></button>`;
-  return `<div class="xrow num ${done ? 'on' : ''} ${epic ? 'epic' : ''} ${big ? 'big' : ''}"><div class="xtop"><span class="xe">${h.e}</span><span class="grow"><b>${esc(h.n)}</b><small>mini ${esc(hUnit(h.mini, h))}${h.epic ? ` · epica ${fmtN(h.epic)}` : ''}${tag}</small></span><span class="xk">${epic ? '⭐' : done ? '✓' : '○'}</span></div><div class="hstep"><span class="small dim grow">${esc(h.unit || '')} oggi</span><button data-act="hplus" data-id="${h.id}" data-d="-1" aria-label="meno">−</button><button class="hv" data-act="hnum" data-id="${h.id}" aria-label="scrivi il numero">${fmtN(v)}</button><button data-act="hplus" data-id="${h.id}" data-d="1" aria-label="più">+</button></div></div>`;
+  if (h.role === 'core') return `<div class="xrow num ${done ? 'on' : ''} ${epic ? 'epic' : ''} big"><div class="xtop"><span class="xe">${h.e}</span><span class="grow"><b>${esc(h.n)}</b><small>mini ${esc(hUnit(h.mini, h))}${h.epic ? ` · epica ${fmtN(h.epic)}` : ''}${v ? ` · oggi ${fmtN(v)}` : ''}</small></span><span class="xk">${epic ? '⭐' : done ? '✓' : '○'}</span></div>
+    <div class="chips hchunks">${done ? '' : `<button class="chip sm" data-act="hsetv" data-id="${h.id}" data-v="${h.mini}">✅ Fatte ${fmtN(h.mini)}</button>`}${h.epic > h.mini && !epic ? `<button class="chip sm gold" data-act="hsetv" data-id="${h.id}" data-v="${h.epic}">⭐ Epica ${fmtN(h.epic)}</button>` : ''}<button class="chip sm" data-act="hnum" data-id="${h.id}">altro…</button>${v ? `<button class="link inl" data-act="hsetv" data-id="${h.id}" data-v="0">annulla</button>` : ''}</div></div>`;
+  const pr = hProg(h, v), target = h.epic > h.mini ? h.epic : h.mini, w = Math.min(100, Math.round(100 * v / target)), mk = h.epic > h.mini ? Math.round(100 * h.mini / h.epic) : 100;
+  const tm = S.ui.timer && S.ui.timer.id === h.id ? S.ui.timer : null;
+  const chunks = hChunks(h).map(n => `<button class="chip sm" data-act="hchunk" data-id="${h.id}" data-n="${n}">+${fmtN(n)}</button>`).join('');
+  return `<div class="xrow num ${done ? 'on' : ''} ${epic ? 'epic' : ''} ${big ? 'big' : ''}">
+    <div class="xtop"><span class="xe">${h.e}</span><span class="grow"><b>${esc(h.n)}</b><small>mini ${esc(hUnit(h.mini, h))}${h.epic ? ` · epica ${fmtN(h.epic)}` : ''}${tag}</small></span><span class="xk">${epic ? '⭐' : done ? '✓' : `${pr.pct}%`}</span></div>
+    <div class="hbar"><i style="width:${w}%"></i>${mk < 100 ? `<s style="left:${mk}%"></s>` : ''}</div>
+    <div class="hmeta small muted"><span><b>${fmtN(v)}</b> / ${esc(hUnit(pr.target, h))}${pr.stage === 'mini' ? '' : pr.stage === 'epica' ? ' (epica)' : ''}</span><button class="link inl" data-act="hnum" data-id="${h.id}">scrivi il totale</button>${v ? `<button class="link inl" data-act="hplus" data-id="${h.id}" data-d="-1">−${fmtN(h.step || 1)}</button>` : ''}</div>
+    ${tm ? `<div class="htimer" id="tmr-${h.id}"><b>⏱️ ${timerLeft(tm)}</b><span class="small muted">su ${tm.min} min</span><button class="btn ghost" data-act="tstop" data-id="${h.id}">Fermo e segno</button></div>` : `<div class="chips hchunks">${chunks}${isTimerH(h) ? `<button class="chip sm gold" data-act="timer" data-id="${h.id}">⏱️ Timer</button>` : ''}</div>`}
+    ${big ? `<div class="hsay small">💬 ${hSay(h, v, today())}</div>` : ''}</div>`;
 }
 function hUpReady(c, h){
   if (h.type !== 'num' || c.pausedNow.has(h.id)) return false;
@@ -1049,14 +1118,25 @@ function hUpBanner(c, list){
 function coreCard(c){
   const p = P_(), core = sortH(c.H.filter(h => h.role === 'core' && !c.pausedNow.has(h.id)));
   const n = core.filter(h => hDone(h, c.hvToday.get(h.id)?.v)).length, bonus = Math.min(10, Math.floor((c.chain + 1) / 7));
-  let out = `<div class="card quest"><div class="row"><div class="qe">🔥</div><div class="grow"><div class="label">Le quest di oggi</div><div class="qt">${n} su ${core.length}</div><div class="small muted">${esc(p.cue)}, ${esc(p.place)} · tutte fatte = fiamma accesa (+${10 + bonus} XP, epica +${25 + bonus})</div></div></div>
+  let out = `<div class="card quest"><div class="row"><div class="qe">🔥</div><div class="grow"><div class="label">Le atomiche di oggi</div><div class="qt">${n} su ${core.length}</div><div class="small muted">${esc(p.cue)}, ${esc(p.place)} · piccole e subito · tutte fatte = fiamma accesa (+${10 + bonus} XP, epica +${25 + bonus})</div></div></div>
     <div class="xlist">${core.map(h => hrow(h, c, true)).join('')}</div>`;
-  if (!core.length) out += `<p class="small muted">Nessuna quest core attiva: scegline almeno una da Io → Le mie abitudini.</p>`;
+  if (!core.length) out += `<p class="small muted">Nessuna atomica attiva: scegline almeno una da Io → Le mie abitudini.</p>`;
   else if (c.doneToday) out += `<div class="donebox">✔ Tutte fatte${c.doneToday.epic ? ', in versione EPICA 💪' : ''}: fiamma accesa</div>`;
   out += hUpBanner(c, core);
   const paused = c.H.filter(h => c.pausedNow.has(h.id));
   if (paused.length) out += `<div class="small dim" style="margin-top:8px">⏸️ In pausa: ${paused.map(h => esc(h.n)).join(', ')} (riprendi da Io → Le mie abitudini).</div>`;
   return out + `</div>`;
+}
+function goalCard(c){
+  const goals = sortH(c.H.filter(h => h.role === 'goal' && !c.pausedNow.has(h.id))); if (!goals.length) return '';
+  const g = c.gToday, T = c.T;
+  let st, warn = false;
+  if (g.full) st = `🏁 Tutti i traguardi alla mini! +${GOAL_FULL_GEM} 💎 e un colpo al boss. Serie traguardi: ${xDays(c.gChain)}.`;
+  else if (c.gBrace) { warn = true; st = `⚠️ Ieri non tutti: oggi tutti alla mini e la serie traguardi continua (${xDays(c.gChain)}).`; }
+  else st = `${g.n} su ${g.N} alla mini. Ognuno alla mini +${GOAL_XP} XP e +${GOAL_GEM} 💎, in epica +${GOAL_EPIC_GEM} 💎; tutti = +${GOAL_FULL_GEM} 💎 e un colpo al boss.`;
+  const wk = ['L','M','M','G','V','S','D'].map((l, i) => { const d = addD(c.ws, i), e = c.gDay.get(d); return `<div class="wd ${e?.full ? 'done' : ''} ${d === T ? 'today' : ''}">${l}<b>${e ? `${e.n}/${e.N}` : ''}</b></div>`; }).join('');
+  return `<div class="card"><div class="row"><div class="qe">🎯</div><div class="grow"><div class="label">I traguardi di oggi · ${g.n} su ${g.N}</div><b style="font-size:1.2rem">Serie traguardi: ${xDays(c.gChain)}</b><div class="small muted">record ${c.gBest} · a chunk, quando riesci: non toccano la fiamma</div></div></div>
+    <div class="xlist">${goals.map(h => hrow(h, c, true)).join('')}</div><div class="state ${warn ? 'warn' : ''}">${st}</div><div class="week">${wk}</div>${hUpBanner(c, goals)}</div>`;
 }
 function extraCardMulti(c){
   const ex = sortH(c.H.filter(h => h.role === 'extra' && !c.pausedNow.has(h.id))), T = c.T, n = c.xToday.size, N = c.xN, need = c.xNeed, full = N > 0 && n >= N, day = N > 0 && n >= need;
@@ -1084,20 +1164,46 @@ function hApply(h, v, el){
   const b = mutate(() => hSet(h.id, v));
   const was = hDone(h, a.hvToday.get(h.id)?.v), now = hDone(h, v);
   if (now && !was) { tone(SND.tap); if (el) floatXP(h.role === 'extra' ? `+${EXTRA_GEM} 💎` : '✓', el.getBoundingClientRect()); }
+  else if (!(a.hvToday.get(h.id)?.v) && v > 0 && !now) { tone(SND.tap); toast('🚀 Partito! Il più difficile era iniziare.'); }
   if (!a.doneToday && b.doneToday) { tone(SND.done); confetti(140, ['🔥']); toast(`🔥 Tutte le quest fatte: fiamma accesa! ${xDays(b.chain)}`); if (b.chain >= 2 && MILESTONES.includes(b.chain)) toast(`🔥 ${b.chain} giorni di fiamma!`); }
   else if (a.doneToday && !b.doneToday) toast('Fiamma di oggi in attesa: manca una quest.');
   if (h.role === 'extra') {
     if (b.xN && b.xToday.size >= b.xN && a.xToday.size < a.xN) { tone(SND.chest); confetti(100, ['⚡','💎']); toast(`🖐️ Tutte le extra! +${EXTRA_FULL_GEM} 💎`); }
     else if (b.xToday.size >= b.xNeed && a.xToday.size < a.xNeed) { confetti(60, ['⚡']); toast(`⚡ Giornata extra! Serie: ${xDays(b.xChain)}`); }
   }
+  if (h.role === 'goal') {
+    if (now && !was) toast(`🎯 Traguardo alla mini: +${GOAL_XP} XP e +${GOAL_GEM} 💎`);
+    if (!a.gToday.full && b.gToday.full) { tone(SND.chest); confetti(120, ['🎯','🏁']); toast(`🏁 Tutti i traguardi! +${GOAL_FULL_GEM} 💎 e un colpo al boss. Serie: ${xDays(b.gChain)}`); }
+    else if (hEpic(h, v) && !hEpic(h, a.hvToday.get(h.id)?.v)) toast(`⭐ Epica su ${esc(h.n)}: +${GOAL_EPIC_GEM} 💎`);
+  }
   const s = b.hstats.get(h.id); if (now && !was && s && s.chain >= 7 && s.chain % 7 === 0) toast(`${h.e} ${esc(h.n)}: ${s.chain} giorni di fila!`);
   keepData();
 }
+function timerModal(h){
+  if (S.ui.timer) { const o = hById(S.ui.timer.id); return toast(`C'è già un timer su «${o ? esc(o.n) : '…'}»: fermalo prima.`); }
+  showModal(`<div class="mc"><h2>⏱️ ${h.e} ${esc(h.n)}</h2><p class="small muted">Scegli il chunk. Alla fine suona e segna i minuti da solo; se fermi prima, segna quelli fatti. Puoi chiudere l'app: il tempo conta lo stesso, e quando torni lo trovi segnato.</p>
+  <div class="chips" style="justify-content:center">${[5,10,15,25].map(m => `<button class="chip" data-act="tstart" data-id="${h.id}" data-m="${m}">▶ ${m} min</button>`).join('')}</div>
+  <button class="btn ghost" data-act="close">Annulla</button></div>`);
+}
+function timerCheck(){
+  const tm = S.ui.timer; if (!tm) return;
+  const h = hById(tm.id); if (!h) { delete S.ui.timer; save(); return; }
+  if (Date.now() >= tm.start + tm.min * 60e3) { timerFinish(h, tm.min); return; }
+  const el = $('#tmr-' + tm.id + ' b'); if (el) el.textContent = '⏱️ ' + timerLeft(tm);
+}
+function timerFinish(h, min){
+  delete S.ui.timer; save();
+  const v = calc().hvToday.get(h.id)?.v || 0, nv = Math.round((v + min) * 100) / 100, pr = hProg(h, nv);
+  hApply(h, nv, null); tone(SND.level); confetti(120, ['⏱️','✨']);
+  showModal(`<div class="mc"><div class="big-emoji pop">⏱️</div><h2>+${min} minuti segnati</h2><p>${h.e} <b>${esc(h.n)}</b>: ${fmtN(nv)} ${esc(h.unit || '')} oggi${pr.stage === 'mini' ? ` · ${pr.pct} % della mini` : pr.stage === 'epica' ? ' · mini fatta, verso l\'epica' : ' · fatta!'}.</p><p class="small muted">${hSay(h, nv, today())}</p>
+  <button class="btn gold" data-act="tstart" data-id="${h.id}" data-m="${min}">▶ Ancora ${min} min</button><button class="btn ghost" data-act="close">Basta così</button></div>`);
+}
+setInterval(timerCheck, 1000);
 function habitsModal(){
   const c = calc(), rows = sortH(c.H).map(h => { const paused = c.pausedNow.has(h.id), s = c.hstats.get(h.id) || {chain:0, best:0};
-    return `<div class="hitem"><div class="row"><div class="se">${h.e}</div><div class="grow"><b>${esc(h.n)}</b> <span class="stag ${h.role === 'core' ? 'on' : ''}">${h.role}</span>${paused ? ' <span class="stag">in pausa</span>' : ''}<div class="small muted">${h.type === 'bin' ? 'fatto / non fatto' : `mini ${esc(hUnit(h.mini, h))}${h.epic ? ` · epica ${fmtN(h.epic)}` : ''} · passo ${fmtN(h.step)}`} · ${SLOTS[h.slot]} · serie ${s.chain}, record ${s.best}</div></div></div><div class="hbtns"><button class="btn ghost" data-act="hedit" data-id="${h.id}">✏️ Modifica</button><button class="btn ghost" data-act="hpause" data-id="${h.id}">${paused ? '▶️ Riprendi' : '⏸️ Pausa'}</button></div></div>`; }).join('');
+    return `<div class="hitem"><div class="row"><div class="se">${h.e}</div><div class="grow"><b>${esc(h.n)}</b> <span class="stag ${h.role === 'core' ? 'on' : ''}">${ROLES[h.role] || h.role}</span>${paused ? ' <span class="stag">in pausa</span>' : ''}<div class="small muted">${h.type === 'bin' ? 'fatto / non fatto' : `mini ${esc(hUnit(h.mini, h))}${h.epic ? ` · epica ${fmtN(h.epic)}` : ''} · passo ${fmtN(h.step)}`} · ${SLOTS[h.slot]} · serie ${s.chain}, record ${s.best}</div></div></div><div class="hbtns"><button class="btn ghost" data-act="hedit" data-id="${h.id}">✏️ Modifica</button><button class="btn ghost" data-act="hpause" data-id="${h.id}">${paused ? '▶️ Riprendi' : '⏸️ Pausa'}</button></div></div>`; }).join('');
   showModal(`<div class="mc left"><h2>🗂️ Le mie abitudini</h2>
-  <p class="small muted"><b>Core</b> = la fiamma, al massimo ${CORE_MAX}: tutte fatte e la giornata è accesa. <b>Extra</b> = gemme e serie extra, nessuna punizione. <b>Pausa</b> = quei giorni non contano né a favore né contro.</p>
+  <p class="small muted"><b>Atomiche</b> (max ${CORE_MAX}) = la fiamma: piccole, subito, tutte fatte e la giornata è accesa. <b>Traguardi</b> (max ${GOAL_MAX}) = della giornata intera, a chunk, con premi e serie propri. <b>Extra</b> = gemme e serie extra. <b>Pausa</b> = quei giorni non contano né a favore né contro.</p>
   <div class="card" style="padding:4px 12px">${rows}</div>
   <button class="btn" data-act="hadd">➕ Aggiungi un'abitudine</button><button class="btn ghost" data-act="close">Chiudi</button></div>`);
 }
@@ -1106,7 +1212,7 @@ function hEditModal(h, isNew){
   showModal(`<div class="mc left"><h2>${isNew ? '➕ Nuova abitudine' : `✏️ ${esc(h.n)}`}</h2>
   <h3>Nome</h3><input class="txt" id="hn" maxlength="40" value="${esc(h.n)}" autocomplete="off">
   <h3>Emoji</h3><input class="txt" id="he" maxlength="4" value="${esc(h.e)}" autocomplete="off" style="width:90px">
-  <h3>Ruolo</h3>${sel('hrole', [['core','Core (fiamma)'],['extra','Extra (gemme)']], h.role)}
+  <h3>Ruolo</h3>${sel('hrole', [['core','Atomica (fiamma: piccola e subito)'],['goal','Traguardo della giornata (a chunk)'],['extra','Extra (gemme)']], h.role)}
   <h3>Tipo</h3>${sel('htype', [['bin','Fatto / non fatto'],['num','Un numero (mini ed epica)']], h.type)}
   <div id="hnumf" ${h.type === 'num' ? '' : 'hidden'}><h3>Unità (al plurale)</h3><input class="txt" id="hunit" maxlength="20" value="${esc(h.unit || '')}" placeholder="minuti, pagine, chiamate…" autocomplete="off">
   <h3>Mini (tutti i giorni)</h3><input class="txt" id="hmini" inputmode="decimal" value="${h.mini ? fmtN(h.mini) : ''}" autocomplete="off">
@@ -1226,7 +1332,7 @@ function viewTrophies(c){
   <div class="heat">${rc}</div>
   <div class="legend"><span><i class="r1"></i>fatta</span><span><i class="r2"></i>doppio</span><span><i class="r3"></i>triplo</span><span><i class="r0"></i>sotto il piano</span></div>
   <details><summary>📋 Le letture degli ultimi 14 giorni</summary>${rl || '<p class="muted small">Ancora niente: le pagine o i minuti li segni nella Home.</p>'}</details></div>
-  ${c.multi ? `<div class="card"><b>🗂️ Le mie abitudini · serie</b>${sortH(c.H).map(h => { const s = c.hstats.get(h.id) || {chain:0, best:0, total:0}; return `<div class="diary small"><span>${h.e} <b>${esc(h.n)}</b> <span class="stag ${h.role === 'core' ? 'on' : ''}">${h.role}</span>${c.pausedNow.has(h.id) ? ' <span class="stag">pausa</span>' : ''}</span><br><span class="dim">serie ${s.chain} · record ${s.best} · fatta ${s.total} ${s.total === 1 ? 'volta' : 'volte'}</span></div>`; }).join('')}</div>` : ''}
+  ${c.multi ? `<div class="card"><b>🗂️ Le mie abitudini · serie</b>${sortH(c.H).map(h => { const s = c.hstats.get(h.id) || {chain:0, best:0, total:0}; return `<div class="diary small"><span>${h.e} <b>${esc(h.n)}</b> <span class="stag ${h.role === 'core' ? 'on' : ''}">${ROLES[h.role] || h.role}</span>${c.pausedNow.has(h.id) ? ' <span class="stag">pausa</span>' : ''}</span><br><span class="dim">serie ${s.chain} · record ${s.best} · fatta ${s.total} ${s.total === 1 ? 'volta' : 'volte'}</span></div>`; }).join('')}</div>` : ''}
   <div class="grid3">${b}</div>`;
 }
 function viewShop(c){
@@ -1349,7 +1455,7 @@ function helpModal(){
   <p><b>🎁 Baule:</b> uno al giorno dopo la quest. Gemme a sorpresa da spendere nello Shop.</p>
   <p><b>🃏 Carte:</b> le prime 10 quest sbloccano una carta ciascuna, poi una ogni 3, con un trucco da campione.</p>
   <p><b>🙂 Check-in:</b> come stai +5 XP, risposta nel diario +5 XP, giorno di squadra +5 XP.</p>
-  ${isMulti() ? `<p><b>🗂️ Più abitudini:</b> le <b>core</b> (max ${CORE_MAX}) sono la fiamma: tutte fatte, anche solo la mini, e la giornata è accesa; tutte in epica = 2 colpi al boss. Le <b>extra</b> danno gemme e hanno la serie extra (conta con il 60 % fatte; tutte = +${EXTRA_FULL_GEM} 💎 e un colpo in più al boss). Ogni abitudine ha la sua serie in Trofei. Da Io → Le mie abitudini aggiungi, modifichi, metti in pausa.</p>` : ''}
+  ${isMulti() ? `<p><b>🗂️ Più abitudini:</b> le <b>atomiche</b> (max ${CORE_MAX}) sono la fiamma: piccole, subito, tutte fatte e la giornata è accesa; tutte in epica = 2 colpi al boss. I <b>traguardi</b> (max ${GOAL_MAX}) sono della giornata intera: ognuno alla mini +${GOAL_XP} XP e +${GOAL_GEM} 💎, tutti alla mini +${GOAL_FULL_GEM} 💎 e un colpo al boss, con la loro serie. Le <b>extra</b> danno gemme e hanno la serie extra (conta con il 60 % fatte; tutte = +${EXTRA_FULL_GEM} 💎 e un colpo in più al boss). Ogni abitudine ha la sua serie in Trofei. Da Io → Le mie abitudini aggiungi, modifichi, metti in pausa.</p><p><b>⏱️ A chunk:</b> le quest a numero sono traguardi della giornata: la barra dice a che punto sei, i bottoni +5 +10 +15 +25 (o +500 passi) sommano i pezzi, il Timer fa partire un pomodoro e segna da solo. Il primo chunk è quello che conta: il resto viene.</p>` : ''}
   <p><b>💎 Shop:</b> cappelli e aure li indossa ${esc(P_().buddyName)}, i temi cambiano i colori dell'app. Uno per tipo, si cambiano con «Usa» e «Togli». Il regalo lo rende felice e basta: un ❤️ accanto al suo nome.</p>
   <p><b>📚 Lettura:</b> segni le pagine o i minuti, scegli tu. Raggiunto il piano (all'inizio 1 pagina o 5 minuti) la giornata conta per la <b>serie lettura</b>: +${READ_XP} XP e +${READ_GEM} 💎; doppio del piano +${READ_X2_GEM} 💎, triplo +${READ_X3_GEM} 💎; ogni 7 giorni +${READ_WEEK_GEM} 💎, ogni 30 +${READ_MONTH_GEM} 💎. Dopo 7 giorni di fila l'app ti propone di salire di piano: decidi tu, e puoi sempre scendere.</p>
   <p><b>⚡ Extra:</b> 5 esercizi in più, quando vuoi: piegamenti di mattina, pomeriggio e sera, squat, e plank o addominali a giorni alterni. Ogni extra +${EXTRA_GEM} 💎 e +${EXTRA_XP} XP; tutti e 5 +${EXTRA_FULL_GEM} 💎. Con ${EXTRA_DAY} su 5 la giornata conta per la <b>serie extra</b>, che ha la sua catena e non tocca la fiamma: ogni 7 giorni di serie +${EXTRA_WEEK_GEM} 💎. Li ritrovi tutti in Trofei.</p>
@@ -1409,7 +1515,7 @@ function cleanState(o){
     const seen = new Set(), num = (v, lo, hi) => { const n = parseFloat(v); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, Math.round(n * 100) / 100)) : lo; };
     p.habits = p.habits.filter(h => h && typeof h === 'object').map(h => {
       const id = str(h.id, 24).replace(/[^a-z0-9_]/gi, ''); if (!id || seen.has(id)) return null; seen.add(id);
-      const type = h.type === 'num' ? 'num' : 'bin', o = {id, e:str(h.e || '⭐', 8), n:str(h.n || id, 40), role:h.role === 'core' ? 'core' : 'extra', type, slot:Object.hasOwn(SLOTS, h.slot) ? h.slot : 'any', changed:isDay(h.changed) ? h.changed : p.created};
+      const type = h.type === 'num' ? 'num' : 'bin', o = {id, e:str(h.e || '⭐', 8), n:str(h.n || id, 40), role:Object.hasOwn(ROLES, h.role) ? h.role : 'extra', type, slot:Object.hasOwn(SLOTS, h.slot) ? h.slot : 'any', changed:isDay(h.changed) ? h.changed : p.created};
       if (type === 'num') { o.unit = str(h.unit || 'volte', 20); o.one = h.one ? str(h.one, 20) : undefined; o.mini = num(h.mini, 0.01, 1e6); o.epic = num(h.epic, 0, 1e6); if (o.epic && o.epic <= o.mini) o.epic = 0; o.step = num(h.step, 0.01, 1e6); }
       return o;
     }).filter(Boolean).slice(0, HABITS_MAX);
@@ -1547,6 +1653,11 @@ const ACT = {
   hup: el => { const h = hById(el.dataset.id); if (!h) return; const nx = hNext(h); h.mini = nx; if (h.epic && h.epic <= nx) h.epic = Math.round(nx * 1.5 / (h.step || 1)) * (h.step || 1); h.changed = today(); save(); render(); confetti(80); toast(`🪜 ${esc(h.n)}: mini ${hUnit(nx, h)}`); },
   hno: el => { S.ui.hNo ||= {}; S.ui.hNo[el.dataset.id] = today(); save(); render(); toast('Ok, resti così. Decidi tu.'); },
   habits: habitsModal,
+  hsetv: el => { const h = hById(el.dataset.id), v = +el.dataset.v; if (!h || !(v >= 0)) return; hApply(h, v, el); },
+  hchunk: el => { const h = hById(el.dataset.id), n = +el.dataset.n; if (!h || h.type !== 'num' || !(n > 0)) return; const v = calc().hvToday.get(h.id)?.v || 0; hApply(h, v + n, el); },
+  timer: el => { const h = hById(el.dataset.id); if (h && isTimerH(h)) timerModal(h); },
+  tstart: el => { const h = hById(el.dataset.id), m = +el.dataset.m; if (!h || !(m > 0)) return; if (S.ui.timer) return toast('C\'è già un timer: fermalo prima.'); S.ui.timer = {id:h.id, start:Date.now(), min:m}; save(); MQ.length = 0; $('#modal')._opt = {}; nextModal(); render(); tone(SND.tap); toast(`⏱️ Via: ${m} minuti di ${esc(h.n)}. Solo quello.`); },
+  tstop: el => { const tm = S.ui.timer; const h = hById(el.dataset.id); if (!tm || !h || tm.id !== h.id) return; const done = Math.floor((Date.now() - tm.start) / 60e3); delete S.ui.timer; save(); if (done >= 1) { const v = calc().hvToday.get(h.id)?.v || 0; hApply(h, v + done, el); toast(`⏱️ Segnati ${done} ${done === 1 ? 'minuto' : 'minuti'}. Anche fermarsi è onesto.`); } else { render(); toast('Meno di un minuto: non segno niente.'); } },
   hpause: el => { const h = hById(el.dataset.id); if (!h) return; const on = calc().pausedNow.has(h.id) ? 0 : 1; S.ev.push({t:'hp', d:today(), id:h.id, on}); save(); MQ.length = 0; $('#modal')._opt = {}; nextModal(); render(); habitsModal(); toast(on ? `⏸️ ${esc(h.n)} in pausa da oggi` : `▶️ ${esc(h.n)} riparte oggi`); },
   hedit: el => { const h = hById(el.dataset.id); if (!h) return; MQ.length = 0; $('#modal')._opt = {}; nextModal(); hEditModal({...h}, false); },
   hadd: () => {
@@ -1558,13 +1669,14 @@ const ACT = {
   haddnew: () => { if (P_().habits.length >= HABITS_MAX) return toast(`Massimo ${HABITS_MAX} abitudini`); MQ.length = 0; $('#modal')._opt = {}; nextModal(); hEditModal({id:'c' + Date.now().toString(36), e:'⭐', n:'', role:'extra', type:'bin', unit:'volte', mini:1, epic:0, step:1, slot:'any', changed:today()}, true); },
   hsave: el => {
     const m = $('#modal'), isNew = el.dataset.new === '1', id = el.dataset.id, p = P_();
-    const n = ($('#hn', m)?.value || '').trim(), e = ($('#he', m)?.value || '').trim() || '⭐', role = $('#hrole', m)?.value === 'core' ? 'core' : 'extra', type = $('#htype', m)?.value === 'num' ? 'num' : 'bin', slot = $('#hslot', m)?.value || 'any';
+    const n = ($('#hn', m)?.value || '').trim(), e = ($('#he', m)?.value || '').trim() || '⭐', role = Object.hasOwn(ROLES, $('#hrole', m)?.value) ? $('#hrole', m).value : 'extra', type = $('#htype', m)?.value === 'num' ? 'num' : 'bin', slot = $('#hslot', m)?.value || 'any';
     if (!n) return toast('Dalle un nome');
     const num = s => parseFloat(String(s || '').replace(',', '.'));
     const o = {id, e:e.slice(0, 8), n:n.slice(0, 40), role, type, slot:Object.hasOwn(SLOTS, slot) ? slot : 'any'};
     if (type === 'num') { o.unit = (($('#hunit', m)?.value || '').trim() || 'volte').slice(0, 20); o.mini = num($('#hmini', m)?.value); o.epic = num($('#hepic', m)?.value) || 0; o.step = num($('#hstep', m)?.value) || 1; if (!(o.mini > 0)) return toast('La mini deve essere più di zero'); if (o.epic && o.epic <= o.mini) return toast('L\'epica deve essere più della mini (o 0)'); if (!(o.step > 0)) o.step = 1; }
     const others = p.habits.filter(h => h.id !== id);
-    if (role === 'core' && others.filter(h => h.role === 'core').length >= CORE_MAX) return toast(`Massimo ${CORE_MAX} core: sposta un'altra a extra prima`);
+    if (role === 'core' && others.filter(h => h.role === 'core').length >= CORE_MAX) return toast(`Massimo ${CORE_MAX} atomiche: sposta un'altra prima`);
+    if (role === 'goal' && others.filter(h => h.role === 'goal').length >= GOAL_MAX) return toast(`Massimo ${GOAL_MAX} traguardi: sposta un altro prima`);
     const old = p.habits.find(h => h.id === id);
     o.changed = old && old.type === type && old.mini === o.mini ? old.changed : today();
     if (old) Object.assign(old, o); else p.habits.push(o);
@@ -1699,7 +1811,7 @@ function pactHTML(p){
   const ob = (p.obstacles || []).filter(k => OBST[k]);
   return `<div class="pact"><div class="pact-title">📜 IL PATTO</div>
     <p>Io, <b>${esc(cap1(p.name))}</b>, sono uno che <b>${esc(p.identity)}</b>.</p>
-    ${Array.isArray(p.habits) && p.habits.length ? `<p><b>${esc(p.cue)}</b>, ${esc(p.place)}, ogni giorno le mie quest:</p><ul>${sortH(p.habits.filter(h => h.role === 'core')).map(h => `<li>${h.e} <b>${esc(hLine(h))}</b>${h.type === 'num' && h.epic ? ` <span class="small">(epica ${esc(hUnit(h.epic, h))})</span>` : ''}</li>`).join('')}</ul><p>E quando posso, ${p.habits.filter(h => h.role === 'extra').length} extra in più.</p>`
+    ${Array.isArray(p.habits) && p.habits.length ? `<p><b>${esc(p.cue)}</b>, ${esc(p.place)}, ogni giorno le mie quest:</p><ul>${sortH(p.habits.filter(h => h.role === 'core')).map(h => `<li>${h.e} <b>${esc(hLine(h))}</b>${h.type === 'num' && h.epic ? ` <span class="small">(epica ${esc(hUnit(h.epic, h))})</span>` : ''}</li>`).join('')}</ul>${p.habits.some(h => h.role === 'goal') ? `<p>Durante la giornata, a pezzi, i miei traguardi:</p><ul>${sortH(p.habits.filter(h => h.role === 'goal')).map(h => `<li>${h.e} <b>${esc(hLine(h))}</b></li>`).join('')}</ul>` : ''}<p>E quando posso, ${p.habits.filter(h => h.role === 'extra').length} extra in più.</p>`
     : `<p><b>${esc(p.cue)}</b>, farò <b>${esc(qty(p.habit.mini, p.habit))}</b> ${esc(p.place)}.</p>
     <p>Nei giorni da campione: <b>${esc(qty(p.habit.epic, p.habit))}</b>.</p>`}
     ${ob.length ? `<ul>${ob.map(k => `<li>Se <b>${OBST[k].l}</b> → ${planFor(k, p)}</li>`).join('')}</ul>` : ''}
@@ -1724,9 +1836,9 @@ function startWizard(prev){
     partnerName: PARTNERS.includes(prev.partner) ? '' : (prev.partner||''),
     reward: [...REWARDS, ...REWARDS_ADULT].includes(prev.reward) ? prev.reward : (prev.reward ? 'altro' : ''), rewardOther: [...REWARDS, ...REWARDS_ADULT].includes(prev.reward) ? '' : (prev.reward||''),
     remind: prev.remind || '18:00', sigv: null, _l1up:true, _l1down:true, _quiz:'B', _redo:true,
-    multi: !!(prev.habits?.length), hsel:(prev.habits || []).map(h => h.id), hcore:(prev.habits || []).filter(h => h.role === 'core').map(h => h.id), readLv:'1', _skipLessons: !!(prev.habits?.length),
+    multi: !!(prev.habits?.length), hsel:(prev.habits || []).map(h => h.id), hcore:(prev.habits || []).filter(h => h.role === 'core').map(h => h.id), hgoal:(prev.habits || []).filter(h => h.role === 'goal').map(h => h.id), readLv:'1', _skipLessons: !!(prev.habits?.length),
   } : {name:'', age:'', buddy:'', buddyName:'', goals:[], goalOther:'', why:[], identity:'', identityOther:'', habitKey:'', cLabel:'', cUnit:'', mini:0, epic:0,
-       cue:'', cueOther:'', place:'', bundle:null, song:'', obst:[], partner:'', partnerName:'', reward:'', rewardOther:'', remind:'18:00', sigv:null, multi:false, hsel:[], hcore:[], readLv:'1', _skipLessons:false};
+       cue:'', cueOther:'', place:'', bundle:null, song:'', obst:[], partner:'', partnerName:'', reward:'', rewardOther:'', remind:'18:00', sigv:null, multi:false, hsel:[], hcore:[], hgoal:[], readLv:'1', _skipLessons:false};
 }
 function chip(field, val, label, {multi=0, extra=''}={}){
   const on = multi ? (W[field]||[]).includes(val) : String(W[field]) === String(val);
@@ -1800,9 +1912,14 @@ const STEPS = [
     ${W.habitKey && W.habitKey !== 'altro' && HABITS[W.habitKey].tip ? `<div class="say small">${HABITS[W.habitKey].tip}</div>` : ''}
     ${W.habitKey === 'altro' ? `<h3>Come si chiama?</h3><input class="txt" data-field="cLabel" maxlength="30" placeholder="Per esempio: corsa" value="${esc(W.cLabel)}" autocomplete="off" aria-label="Nome della quest"><h3>Cosa conti? (al plurale)</h3><input class="txt" data-field="cUnit" maxlength="30" placeholder="Per esempio: minuti di corsa" value="${esc(W.cUnit)}" autocomplete="off" aria-label="Cosa conti"><h3>E quando è uno solo? (se vuoi)</h3><input class="txt" data-field="cOne" maxlength="30" placeholder="Per esempio: minuto di corsa" value="${esc(W.cOne || '')}" autocomplete="off" aria-label="Al singolare">` : ''}`},
   {id:'hcore', skip:()=>!W.multi, ok:()=>W.hcore.length >= 1 && W.hcore.every(id => W.hsel.includes(id)), html:()=>`
-    <h2>Quali sono le tue quest core?</h2>
-    <p class="muted">Da 1 a ${CORE_MAX}. La fiamma 🔥 si accende quando le hai fatte tutte, basta la mini. Le altre sono extra: gemme e la loro serie, nessuna punizione se saltano.</p>
+    <h2>Le atomiche: cosa fai subito, ogni mattina?</h2>
+    <p class="muted">Da 1 a ${CORE_MAX}, piccole e veloci (due minuti in tutto). La fiamma 🔥 si accende quando le hai fatte tutte. Per esempio: bicchiere d'acqua, pesata, integratori, 5 push-up.</p>
     <div class="chips col">${W.hsel.map(id => wHabit(id)).filter(Boolean).map(h => chip('hcore', h.id, `${h.e} ${esc(h.n)}${h.type === 'num' ? ` <span class="small">· mini ${esc(hUnit(h.mini, h))}</span>` : ''}`, {multi:CORE_MAX})).join('')}</div>`},
+  {id:'hgoal', skip:()=>!W.multi, ok:()=>W.hgoal.every(id => W.hsel.includes(id) && !W.hcore.includes(id)), html:()=>`
+    <h2>I traguardi della giornata</h2>
+    <p class="muted">Fino a ${GOAL_MAX}, quelli che si fanno a pezzi durante il giorno (minuti di lavoro, passi, chiamate). Non toccano la fiamma: hanno barra, chunk, timer e premi loro. Il resto sono extra.</p>
+    <div class="chips col">${W.hsel.filter(id => !W.hcore.includes(id)).map(id => wHabit(id)).filter(Boolean).map(h => chip('hgoal', h.id, `${h.e} ${esc(h.n)}${h.type === 'num' ? ` <span class="small">· mini ${esc(hUnit(h.mini, h))}</span>` : ''}`, {multi:GOAL_MAX})).join('')}</div>
+    ${W.hgoal.length ? '' : '<p class="small dim">Nessun traguardo va benissimo: tutto il resto diventa extra.</p>'}`},
   {id:'mini', skip:()=>W.multi, ok:()=>W.mini >= 1 && W.epic > W.mini, html:()=>{ const h = habitOf(); return `
     <span class="lesson">📚 Lezione 3 · La regola dei due minuti</span>
     <h2>Il segreto è partire piccolissimo.</h2>
@@ -1873,7 +1990,7 @@ function draftProfile(){
   let habits, h;
   if (W.multi) {
     const prevH = new Map((prev?.habits || []).map(x => [x.id, x]));
-    habits = W.hsel.map(id => { const base = prevH.get(id) || CATALOG.find(x => x.id === id); return base ? {...base, role: W.hcore.includes(id) ? 'core' : 'extra', changed: base.changed || today()} : null; }).filter(Boolean);
+    habits = W.hsel.map(id => { const base = prevH.get(id) || CATALOG.find(x => x.id === id); return base ? {...base, role: W.hcore.includes(id) ? 'core' : W.hgoal.includes(id) ? 'goal' : 'extra', changed: base.changed || today()} : null; }).filter(Boolean);
     const c0 = habits.find(x => x.role === 'core') || habits[0];
     h = {label:c0.n, emoji:c0.e, unit:c0.unit || 'volte', one:c0.one, mini:c0.type === 'num' ? Math.max(1, Math.round(c0.mini)) : 1, epic:c0.type === 'num' && c0.epic > c0.mini ? Math.max(2, Math.round(c0.epic)) : 2};
     W.mini = h.mini; W.epic = h.epic; W.habitKey = 'altro';
@@ -1952,7 +2069,7 @@ function hatch(){
     $('#hatch-m').innerHTML = redo
       ? `<div class="say">Da oggi vale questo patto: <b>${esc(questLine())}</b>.</div>`
       : `<p class="center"><b>+60 XP</b> per il patto firmato → <b>Livello 2</b>!</p>
-         <div class="say">Ultima cosa, la più importante: la prima quest si fa <b>adesso</b>, finché sei carico. <b>${esc(questLine())}</b>. ${W.multi ? 'Poi segnala nella Home.' : 'Poi premi FATTO.'}</div>
+         <div class="say">${W.multi ? `Ultima cosa, la più importante: le tue quest sono traguardi della giornata, si fanno a pezzi. Il <b>primo chunk</b> si fa <b>adesso</b>: cinque minuti della più facile, poi segnalo nella Home.` : `Ultima cosa, la più importante: la prima quest si fa <b>adesso</b>, finché sei carico. <b>${esc(questLine())}</b>. Poi premi FATTO.`}</div>
          <p class="small dim center">⏰ Il promemoria lo attivi dalla home, in 30 secondi.</p>`;
     tone(SND.level); confetti(220, ['⭐','🔥','✨']);
     nb.style.visibility = 'visible';
@@ -1980,11 +2097,12 @@ const WACT = {
     if (max) {
       const a = W[f]; const i = a.indexOf(v);
       if (i >= 0) a.splice(i, 1); else { if (a.length >= max) { toast(`Massimo ${max}`); return; } a.push(v); }
-      if (f === 'hsel') W.hcore = W.hcore.filter(id => W.hsel.includes(id));
+      if (f === 'hsel') { W.hcore = W.hcore.filter(id => W.hsel.includes(id)); W.hgoal = W.hgoal.filter(id => W.hsel.includes(id)); }
+      if (f === 'hcore') W.hgoal = W.hgoal.filter(id => !W.hcore.includes(id));
     } else {
       W[f] = v;
       if (f === 'habitKey') { const h = HABITS[v]; W.mini = h ? h.minis[0] : 0; W.epic = h ? h.epics[1] : 0; }
-      if (f === 'age' && v === 'Adulto') { W.goals = W.goals.filter(g => g !== 'papa'); if (!W.hsel.length) { W.multi = true; W.hsel = CATALOG.map(h => h.id); W.hcore = CATALOG.filter(h => h.role === 'core').map(h => h.id); } }
+      if (f === 'age' && v === 'Adulto') { W.goals = W.goals.filter(g => g !== 'papa'); if (!W.hsel.length) { W.multi = true; W.hsel = CATALOG.map(h => h.id); W.hcore = CATALOG.filter(h => h.role === 'core').map(h => h.id); W.hgoal = CATALOG.filter(h => h.role === 'goal').map(h => h.id); } }
       if (f === 'age' && v !== 'Adulto') W.multi = false;
     }
     tone(SND.tap); renderWizard();
@@ -2025,7 +2143,7 @@ let hiddenAt = 0;
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { hiddenAt = Date.now(); return; }
   if (hiddenAt && Date.now() - hiddenAt > 30 * 60e3 && !W && !mOpen && !document.activeElement?.matches('textarea, input')) { location.reload(); return; }
-  checkDay(); checkVersion();
+  checkDay(); checkVersion(); timerCheck();
   navigator.serviceWorker?.getRegistration?.().then(g => g && g.update()).catch(() => {});
   if (AC) AC.suspend().then(() => AC.resume()).catch(() => { try { AC.close(); } catch(e) {} AC = null; });
 });
