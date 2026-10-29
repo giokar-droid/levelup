@@ -172,6 +172,18 @@ input[type=file]{font-size:16px; margin-top:8px; max-width:100%; color:var(--mut
 .xrow small{display:block; font-size:.72rem; color:var(--dim); font-weight:800; text-transform:uppercase; letter-spacing:.06em}
 .xrow .xk{font-weight:800; white-space:nowrap; color:var(--gold)}
 .xrow.on{background:rgba(61,220,132,.14); border-color:var(--ok)}
+.xrow.epic{border-color:var(--gold)}
+.xrow.big{min-height:62px; padding:10px 12px} .xrow.big b{font-size:1.15rem}
+.xrow.num{cursor:default; flex-direction:column; align-items:stretch; gap:6px}
+.xrow .grow{min-width:0}
+.xtop{display:flex; align-items:center; gap:10px}
+.hstep{display:flex; align-items:center; gap:6px}
+.hstep button{min-width:40px; height:40px; border-radius:12px; border:2px solid var(--line); background:var(--card); color:var(--text); font-weight:800; font-size:1.2rem; cursor:pointer; font-family:inherit; touch-action:manipulation}
+.hstep .hv{min-width:52px; padding:0 6px; font-size:1.05rem; background:var(--bg2)}
+.xrow.on .hstep .hv{border-color:var(--ok)}
+select.txt{appearance:auto; -webkit-appearance:auto; height:48px}
+.hitem{padding:10px 0; border-bottom:2px solid var(--line)} .hitem:last-child{border-bottom:0} .hitem .se{font-size:34px; width:44px; text-align:center}
+.hbtns{display:flex; gap:8px; margin-top:8px} .hbtns .btn{margin:0; padding:8px; font-size:.95rem; min-height:40px}
 .xrow.on .xk{color:var(--ok); font-size:1.3rem}
 .heat i.x1,.legend i.x1{background:rgba(255,194,61,.28)} .heat i.x2{background:rgba(255,194,61,.45)} .heat i.x3,.legend i.x3{background:rgba(255,194,61,.65)} .heat i.x4{background:rgba(255,194,61,.85)} .heat i.x5,.legend i.x5{background:var(--gold)}
 
@@ -254,7 +266,7 @@ ol{padding-left:1.3em; margin:.4em 0} ol li{margin:.25em 0; line-height:1.35}
 <canvas id="fx" aria-hidden="true"></canvas>
 <script>
 'use strict';
-const VERSION = '1.3';
+const VERSION = '2.0';
 const KEY = 'levelup.v1';
 const P = new URLSearchParams(location.search);
 const DEV = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
@@ -323,6 +335,8 @@ const WHYS = [
 const IDENT = ['si allena tutti i giorni','non molla','mantiene le promesse che fa a se stesso','diventa più forte ogni giorno'];
 const CUES = ['Dopo essermi lavato i denti la sera','Appena torno da scuola','Prima di accendere la console o il telefono','Dopo cena','Appena sveglio','Dopo aver finito i compiti'];
 const PLACES = ['in camera mia','in salotto','sul balcone o in giardino','dove mi trovo'];
+const CUES_ADULT = ['Dopo il caffè della mattina','Appena arrivo in ufficio','Dopo pranzo','Appena finisco di lavorare','Dopo cena','Prima di andare a letto'];
+const PLACES_ADULT = ['a casa','in ufficio','in palestra','dove mi trovo'];
 const OBST = {
   voglia:   {e:'😴', l:'non ho voglia',              plan:'faccio solo la versione mini: due minuti e basta.'},
   dimentico:{e:'🧠', l:'me ne dimentico',            plan:'lascio la mia roba in vista e guardo il promemoria.'},
@@ -498,6 +512,39 @@ const coreOf = d => dayIdx(d) % 2 ? {e:'🍫', n:'10 addominali'} : {e:'🧱', n
 const extraOf = (k, d) => { const x = EXTRA.find(x => x.k === k); return x && x.k === 'core' ? {...x, ...coreOf(d)} : x; };
 const xDays = n => `${n} ${n === 1 ? 'giorno' : 'giorni'}`;
 
+/* ---------- più abitudini (2.0, profilo Adulto): core = fiamma, extra = gemme e serie extra, ognuna con la sua serie ---------- */
+const CATALOG = [
+  {id:'chiamate',  e:'📞', n:'Chiamate outreach',        role:'core',  type:'num', unit:'chiamate',    one:'chiamata',    mini:1,    epic:5,    step:1,    slot:'any'},
+  {id:'cena',      e:'🍽️', n:'Cena pulita, niente alcol', role:'core',  type:'bin', slot:'eve'},
+  {id:'pesata',    e:'⚖️', n:'Pesata a digiuno',         role:'core',  type:'bin', slot:'am'},
+  {id:'lavoro',    e:'🎯', n:'Lavoro deliberato',        role:'extra', type:'num', unit:'minuti',      one:'minuto',      mini:200,  epic:400,  step:25,   slot:'any'},
+  {id:'prep',      e:'📝', n:'Prep call script',         role:'extra', type:'num', unit:'minuti',      one:'minuto',      mini:15,   epic:30,   step:5,    slot:'am'},
+  {id:'passi',     e:'🚶', n:'Passi',                    role:'extra', type:'num', unit:'passi',       one:'passo',       mini:5000, epic:7000, step:1000, slot:'eve'},
+  {id:'acqua',     e:'💧', n:'Acqua',                    role:'extra', type:'num', unit:'litri',       one:'litro',       mini:1.5,  epic:2,    step:0.25, slot:'any'},
+  {id:'sonno',     e:'😴', n:'Sonno',                    role:'extra', type:'num', unit:'ore',         one:'ora',         mini:7,    epic:8,    step:0.5,  slot:'am'},
+  {id:'pushup_am', e:'💪', n:'Push-up mattina',          role:'extra', type:'num', unit:'ripetizioni', one:'ripetizione', mini:15,   epic:24,   step:5,    slot:'am'},
+  {id:'pushup_pm', e:'💪', n:'Push-up sera',             role:'extra', type:'num', unit:'ripetizioni', one:'ripetizione', mini:15,   epic:25,   step:5,    slot:'eve'},
+  {id:'squat_am',  e:'🦵', n:'Squat mattina',            role:'extra', type:'num', unit:'ripetizioni', one:'ripetizione', mini:20,   epic:30,   step:5,    slot:'am'},
+  {id:'squat_pm',  e:'🦵', n:'Squat sera',               role:'extra', type:'num', unit:'ripetizioni', one:'ripetizione', mini:20,   epic:30,   step:5,    slot:'eve'},
+  {id:'circ_am',   e:'🔥', n:'Circuito mattina',         role:'extra', type:'num', unit:'minuti',      one:'minuto',      mini:10,   epic:15,   step:5,    slot:'am'},
+  {id:'circ_pm',   e:'🌙', n:'Circuito sera',            role:'extra', type:'num', unit:'minuti',      one:'minuto',      mini:10,   epic:15,   step:5,    slot:'eve'},
+  {id:'plank',     e:'🧘', n:'Plank e core',             role:'extra', type:'bin', slot:'any'},
+  {id:'integ_am',  e:'💊', n:'Integratori mattina',      role:'extra', type:'bin', slot:'am'},
+  {id:'integ_pm',  e:'💊', n:'Integratori sera',         role:'extra', type:'bin', slot:'eve'},
+];
+const CORE_MAX = 3, HABITS_MAX = 30, X_RATIO = 0.6;
+const SLOTS = {am:'mattina', pm:'pomeriggio', eve:'sera', any:'quando vuoi'};
+const SLOT_ORDER = {am:0, pm:1, eve:2, any:3};
+const isMulti = () => Array.isArray(P_()?.habits) && P_().habits.length > 0;
+const fmtN = n => Number.isInteger(+n) ? String(+n) : String(Math.round(+n * 100) / 100).replace('.', ',');
+const hUnit = (n, h) => `${fmtN(n)} ${+n === 1 && h.one ? h.one : (h.unit || 'volte')}`;
+const hDone = (h, v) => h.type === 'bin' ? (v || 0) >= 1 : (v || 0) >= h.mini;
+const hEpic = (h, v) => h.type === 'num' && h.epic > 0 && (v || 0) >= h.epic;
+const hLine = (h, n) => h.type === 'bin' ? h.n : `${h.n}: ${hUnit(n ?? h.mini, h)}`;
+const hNext = h => { const s = h.step || 1; return Math.max(h.mini + s, Math.round(h.mini * 1.2 / s) * s); };
+const hById = id => (P_()?.habits || []).find(h => h.id === id);
+const sortH = a => a.slice().sort((x, y) => (SLOT_ORDER[x.slot] ?? 3) - (SLOT_ORDER[y.slot] ?? 3));
+
 /* ---------- lettura (chiesta il 27.10.2026): pagine o minuti a scelta, serie a parte, piano che sale solo se lo decide lui ---------- */
 const READ_FLOORS = [{p:1,m:5},{p:3,m:8},{p:5,m:10},{p:8,m:15},{p:12,m:20},{p:15,m:25},{p:20,m:30}];
 const READ_QUICK = {pag:[1,3,5,10,20], min:[5,10,15,20,30]};
@@ -530,7 +577,7 @@ function norm(){
   S.v = 1; S.profile ||= null; S.ev ||= []; S.eq ||= {}; S.set ||= {sound:true}; S.ui ||= {}; S.ui.tab ||= 'home'; S.ui.seen ||= 0;
   if (S.profile && typeof cleanState === 'function') {
     // anche i dati già salvati passano dalla stessa pulizia dell'import; i flag locali dell'interfaccia restano
-    try { const ui = S.ui; S = cleanState(S); for (const k of ['noInstall','safariOk','goldiNo','readNo','tab']) if (ui[k] !== undefined) S.ui[k] = ui[k]; } catch(e) {}
+    try { const ui = S.ui; S = cleanState(S); for (const k of ['noInstall','safariOk','goldiNo','readNo','hNo','tab']) if (ui[k] !== undefined) S.ui[k] = ui[k]; } catch(e) {}
   }
   const h = S.profile?.habit;
   if (h) { if (h.emoji === '\u{1FAA2}') h.emoji = '🦘'; if (!h.one && HABITS[h.key]) h.one = HABITS[h.key].one; }
@@ -543,7 +590,8 @@ async function keepData(){ try { if (navigator.storage?.persist && !(await navig
 /* ---------- motore del gioco ---------- */
 function calc(){
   const T = today();
-  const done = new Map(), buys = new Map(), team = new Set(), moodDays = new Set(), ansDays = new Set(), owned = new Set(), awarded = new Set(), extras = new Map(), reads = new Map(), floors = new Map();
+  const done = new Map(), buys = new Map(), team = new Set(), moodDays = new Set(), ansDays = new Set(), owned = new Set(), awarded = new Set(), extras = new Map(), reads = new Map(), floors = new Map(), hv = new Map(), hpEv = [];
+  const multi = isMulti(), H = multi ? P_().habits : [], xNday = new Map(), hstats = new Map(), pausedNow = new Set();
   let chestG = 0, bonusXP = 0, spent = 0, early = 0, gifts = 0;
   for (const e of S.ev) {
     switch (e.t) {
@@ -557,8 +605,37 @@ function calc(){
       case 'extra': if (!extras.has(e.d)) extras.set(e.d, new Set()); extras.get(e.d).add(e.k); break;
       case 'read': { const r = reads.get(e.d) || {p:0, m:0, ok:false, mult:0}; if (e.u === 'min') r.m += e.n; else r.p += e.n; reads.set(e.d, r); break; }
       case 'readfloor': floors.set(e.d, e.lv); break;
+      case 'h': if (!hv.has(e.d)) hv.set(e.d, new Map()); hv.get(e.d).set(e.id, {v:e.v, ts:e.ts}); break;
+      case 'hp': hpEv.push(e); break;
       case 'buy': spent += e.cost || 0;
         if (e.item === 'shield') buys.set(e.d, (buys.get(e.d) || 0) + 1); else if (e.item === 'gift') gifts++; else owned.add(e.item); break;
+    }
+  }
+  if (multi) {
+    // più abitudini: la fiamma del giorno è «tutte le core fatte»; le extra fatte vanno nella mappa degli extra; ogni abitudine ha la sua serie
+    H.forEach(h => hstats.set(h.id, {chain:0, best:0, total:0, gap:0}));
+    hpEv.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : 0);
+    const paused = new Set(); let pi = 0;
+    const d0 = [P_().created, ...hv.keys(), ...hpEv.map(e => e.d)].sort()[0];
+    for (let d = d0; d <= T; d = addD(d, 1)) {
+      while (pi < hpEv.length && hpEv[pi].d <= d) { if (hpEv[pi].on) paused.add(hpEv[pi].id); else paused.delete(hpEv[pi].id); pi++; }
+      const vals = hv.get(d) || new Map(), act = H.filter(h => !paused.has(h.id));
+      const core = act.filter(h => h.role === 'core'), ex = act.filter(h => h.role === 'extra');
+      const val = h => vals.get(h.id)?.v || 0;
+      if (core.length && core.every(h => hDone(h, val(h)))) {
+        const nums = core.filter(h => h.type === 'num' && h.epic > 0);
+        const ts = core.reduce((a, h) => Math.max(a, vals.get(h.id)?.ts || 0), 0) || null;
+        done.set(d, {t:'done', d, epic: nums.length > 0 && nums.every(h => hEpic(h, val(h))), ts});
+      }
+      const xs = new Set(ex.filter(h => hDone(h, val(h))).map(h => h.id));
+      if (xs.size) extras.set(d, xs);
+      xNday.set(d, ex.length);
+      for (const h of act) {
+        const s = hstats.get(h.id), ok = hDone(h, val(h));
+        if (ok) { s.total++; s.chain++; s.gap = 0; if (s.chain > s.best) s.best = s.chain; }
+        else if (d < T && s.chain > 0) { s.gap++; if (s.gap >= 2) { s.chain = 0; s.gap = 0; } }
+      }
+      if (d === T) paused.forEach(id => pausedNow.add(id));
     }
   }
   for (const e of done.values()) if (e.ts) { const hh = new Date(e.ts).getHours(); if (hh >= 5 && hh < 9) early++; }
@@ -573,10 +650,11 @@ function calc(){
   for (let d = start; d <= T; d = addD(d, 1)) {
     const b = buys.get(d); if (b) bought = Math.min(3 - earned, bought + b);
     // extra: serie a parte, stessa regola della fiamma (si azzera solo dopo due giorni saltati), senza scudi
-    const xn = extras.get(d)?.size || 0;
-    if (xn) { xTotal += xn; xp += xn * EXTRA_XP; xGems += xn * EXTRA_GEM; if (xn >= EXTRA.length) { xFull++; xGems += EXTRA_FULL_GEM; } }
-    if (xn >= EXTRA_DAY) { xChain++; xGap = 0; if (xChain > xBest) xBest = xChain; if (xChain % 7 === 0) xGems += EXTRA_WEEK_GEM; }
-    else if (d < T && xChain > 0) { xGap++; if (xGap >= 2) { xChain = 0; xGap = 0; } }
+    const xn = extras.get(d)?.size || 0, xNd = multi ? (xNday.get(d) || 0) : EXTRA.length, xNeed = multi ? Math.max(1, Math.ceil(xNd * X_RATIO)) : EXTRA_DAY;
+    const xFullDay = xNd > 0 && xn >= xNd;
+    if (xn) { xTotal += xn; xp += xn * EXTRA_XP; xGems += xn * EXTRA_GEM; if (xFullDay) { xFull++; xGems += EXTRA_FULL_GEM; } }
+    if (xNd > 0 && xn >= xNeed) { xChain++; xGap = 0; if (xChain > xBest) xBest = xChain; if (xChain % 7 === 0) xGems += EXTRA_WEEK_GEM; }
+    else if (xNd > 0 && d < T && xChain > 0) { xGap++; if (xGap >= 2) { xChain = 0; xGap = 0; } }
     // lettura: il piano in vigore quel giorno decide se la giornata conta; stessa regola «mai due di fila», senza scudi
     if (floors.has(d)) { rLv = Math.min(READ_FLOORS.length, Math.max(1, floors.get(d))); rLvSince = d; if (rLv > rMaxLv) rMaxLv = rLv; }
     const rr = reads.get(d);
@@ -599,7 +677,7 @@ function calc(){
       xp += (e.epic ? 25 : 10) + Math.min(10, Math.floor(chain/7));
       if (chain % 7 === 0 && earned < 2 && earned + bought < 3) earned++;
       if (chain > best) best = chain;
-      const ws = weekStart(d), prev = weekHits.get(ws) || 0, hit = prev + (e.epic ? 2 : 1);
+      const ws = weekStart(d), prev = weekHits.get(ws) || 0, hit = prev + (e.epic ? 2 : 1) + (multi && xFullDay ? 1 : 0);
       weekHits.set(ws, hit);
       if (prev < BOSS_HP && hit >= BOSS_HP) { bossWeeks.add(ws); xp += 50; lastKillWs = ws; }
       if (team.has(d)) { teamChain++; xp += 5; teamBest = Math.max(teamBest, teamChain); } else if (d < T) teamChain = 0;
@@ -635,7 +713,9 @@ function calc(){
     chestToday: S.ev.find(e => e.t === 'chest' && e.d === T) || null,
     cards: cardsFor(total),
     extras, xToday: extras.get(T) || new Set(), xTotal, xFull, xChain, xBest, xGap,
-    xBrace: xChain > 0 && xGap === 1 && (extras.get(T)?.size || 0) < EXTRA_DAY,
+    xBrace: xChain > 0 && xGap === 1 && (extras.get(T)?.size || 0) < (multi ? Math.max(1, Math.ceil((xNday.get(T) || 0) * X_RATIO)) : EXTRA_DAY),
+    multi, H, hstats, pausedNow, hvToday: hv.get(T) || new Map(),
+    xN: multi ? (xNday.get(T) || 0) : EXTRA.length, xNeed: multi ? Math.max(1, Math.ceil((xNday.get(T) || 0) * X_RATIO)) : EXTRA_DAY,
     reads, rToday: reads.get(T) || {p:0, m:0, ok:false, mult:0}, rChain, rBest, rGap, rLv, rFloor: READ_FLOORS[rLv - 1], rDays, rPages, rMins, rDouble, rTriple, rMaxLv, rLvSince,
     rBrace: rChain > 0 && rGap === 1 && !reads.get(T)?.ok,
   };
@@ -743,7 +823,7 @@ const helpHTML = () => isAdult()
   : 'Se preferisci parlarne con qualcuno fuori casa: <a href="tel:147">147</a> (Pro Juventute), gratis e confidenziale, giorno e notte, anche in chat su <a href="https://www.147.ch/it/" target="_blank" rel="noopener">147.ch</a>.';
 function fillCard(x){ return x.replace('{cue}', lc1(P_().cue)).replace('{partner}', P_().partner || 'un amico'); }
 function greet(){ const h = now().getHours(); return h < 12 ? 'Buongiorno' : h < 18 ? 'Ciao' : 'Buonasera'; }
-const questLine = () => qty(P_().habit.mini, P_().habit);
+const questLine = () => isMulti() ? sortH(P_().habits.filter(h => h.role === 'core')).map(h => hLine(h)).join(' · ') : qty(P_().habit.mini, P_().habit);
 const qFor = (T, m) => m && m <= 2 ? 'Vuoi scrivere cosa è successo oggi? Resta su questo dispositivo.' : byDay(QUESTIONS, T);
 function lowStreak(c){
   const last = S.ev.filter(e => e.t === 'mood' && e.m).sort((a, b) => a.d < b.d ? -1 : 1).slice(-3);
@@ -855,7 +935,8 @@ function viewHome(c){
   if (!S.ui.remindDone && c.total > 0) out += `<div class="banner small"><b>⏰ Il promemoria non è ancora attivo.</b> Bastano 30 secondi.<div class="btns"><button class="btn" data-act="remind">Attivalo</button><button class="btn ghost" data-act="noremind">No grazie</button></div></div>`;
   else if (S.ui.remindDone === 1 && S.ui.remindAt && S.ui.remindAt !== p.remind) out += `<div class="banner small"><b>⏰ Hai cambiato l'ora:</b> aggiorna il promemoria (togli quello delle ${esc(S.ui.remindAt)} e metti quello delle ${esc(p.remind)}).<div class="btns"><button class="btn" data-act="remind">Aggiorna</button></div></div>`;
 
-  // quest
+  // quest (una sola) oppure le quest core (più abitudini)
+  if (c.multi) out += coreCard(c); else {
   const bonus = Math.min(10, Math.floor((c.chain + 1) / 7));
   out += `<div class="card quest"><div class="row"><div class="qe">${esc(h.emoji)}</div><div class="grow"><div class="label">La quest di oggi</div><div class="qt">${esc(questLine())}</div><div class="small muted">${esc(p.cue)}, ${esc(p.place)}</div></div></div>`;
   if (!c.doneToday) {
@@ -869,6 +950,7 @@ function viewHome(c){
   if (!c.done.has(y) && p.created <= y && c.total > 0) out += `<button class="link" data-act="yesterday">Ieri l'avevi fatta ma non l'hai segnata?</button>`;
   if (c.doneToday) out += `<button class="link" data-act="undo">Annulla (ho premuto per sbaglio)</button>`;
   out += `</div>`;
+  }
 
   // baule
   if (c.doneToday && !c.chestToday) out += `<div class="card chest-card"><div class="row"><div class="ce shake">🎁</div><div class="grow"><b>Baule del giorno!</b><div class="small muted">Dentro ci sono gemme. Quante? Sorpresa.</div></div></div><button class="btn gold" data-act="chest">Apri il baule</button></div>`;
@@ -924,6 +1006,7 @@ function viewHome(c){
   return out;
 }
 function extraCard(c){
+  if (c.multi) return extraCardMulti(c);
   const T = c.T, n = c.xToday.size, N = EXTRA.length, full = n >= N, day = n >= EXTRA_DAY;
   const rows = EXTRA.map(x => {
     const o = extraOf(x.k, T), on = c.xToday.has(x.k);
@@ -943,6 +1026,96 @@ function extraCard(c){
   return `<div class="card"><div class="row"><div class="qe">⚡</div><div class="grow"><div class="label">Extra di oggi</div><b style="font-size:1.2rem">Serie extra: ${xDays(c.xChain)}</b><div class="small muted">record ${c.xBest} · ${c.xTotal} extra in totale</div></div></div>
     <div class="xlist">${rows}</div><div class="state ${warn ? 'warn' : ''}">${st}</div><div class="week">${wk}</div>
     <div class="small dim" style="margin-top:8px">Gli extra non toccano la fiamma 🔥: hanno la loro serie. Ogni extra +${EXTRA_GEM} 💎 e +${EXTRA_XP} XP · 5 su 5 +${EXTRA_FULL_GEM} 💎 · ogni 7 giorni di serie +${EXTRA_WEEK_GEM} 💎.</div></div>`;
+}
+function hrow(h, c, big){
+  const v = c.hvToday.get(h.id)?.v || 0, done = hDone(h, v), epic = hEpic(h, v);
+  const tag = h.role === 'extra' ? ` · +${EXTRA_GEM} 💎` : '';
+  if (h.type === 'bin') return `<button class="xrow ${done ? 'on' : ''} ${big ? 'big' : ''}" data-act="htoggle" data-id="${h.id}" aria-pressed="${done}"><span class="xe">${h.e}</span><span class="grow"><b>${esc(h.n)}</b><small>${SLOTS[h.slot] || ''}${tag}</small></span><span class="xk">${done ? '✓' : '○'}</span></button>`;
+  return `<div class="xrow num ${done ? 'on' : ''} ${epic ? 'epic' : ''} ${big ? 'big' : ''}"><div class="xtop"><span class="xe">${h.e}</span><span class="grow"><b>${esc(h.n)}</b><small>mini ${esc(hUnit(h.mini, h))}${h.epic ? ` · epica ${fmtN(h.epic)}` : ''}${tag}</small></span><span class="xk">${epic ? '⭐' : done ? '✓' : '○'}</span></div><div class="hstep"><span class="small dim grow">${esc(h.unit || '')} oggi</span><button data-act="hplus" data-id="${h.id}" data-d="-1" aria-label="meno">−</button><button class="hv" data-act="hnum" data-id="${h.id}" aria-label="scrivi il numero">${fmtN(v)}</button><button data-act="hplus" data-id="${h.id}" data-d="1" aria-label="più">+</button></div></div>`;
+}
+function hUpReady(c, h){
+  if (h.type !== 'num' || c.pausedNow.has(h.id)) return false;
+  const s = c.hstats.get(h.id); if (!s || s.chain < 7) return false;
+  if (daysBetween(h.changed || P_().created, c.T) < 7) return false;
+  const no = S.ui.hNo?.[h.id]; if (no && daysBetween(no, c.T) < 7) return false;
+  const nx = hNext(h); let n = 0;
+  for (let i = 0; i < 7; i++) { const d = addD(c.T, -i), ev = S.ev.find(e => e.t === 'h' && e.d === d && e.id === h.id); if (ev && ev.v >= nx) n++; }
+  return n >= 4;
+}
+function hUpBanner(c, list){
+  const h = list.find(x => hUpReady(c, x)); if (!h) return '';
+  return `<div class="banner"><b>🪜 Alzi «${esc(h.n)}»?</b><div class="small">${c.hstats.get(h.id).chain} giorni di fila e quasi sempre oltre: ormai è facile. Nuova mini: <b>${esc(hUnit(hNext(h), h))}</b> (ora ${esc(hUnit(h.mini, h))}). Decidi tu, e da Io puoi sempre abbassarla.</div><div class="btns"><button class="btn gold" data-act="hup" data-id="${h.id}">Sì, alzo</button><button class="btn ghost" data-act="hno" data-id="${h.id}">Resto così</button></div></div>`;
+}
+function coreCard(c){
+  const p = P_(), core = sortH(c.H.filter(h => h.role === 'core' && !c.pausedNow.has(h.id)));
+  const n = core.filter(h => hDone(h, c.hvToday.get(h.id)?.v)).length, bonus = Math.min(10, Math.floor((c.chain + 1) / 7));
+  let out = `<div class="card quest"><div class="row"><div class="qe">🔥</div><div class="grow"><div class="label">Le quest di oggi</div><div class="qt">${n} su ${core.length}</div><div class="small muted">${esc(p.cue)}, ${esc(p.place)} · tutte fatte = fiamma accesa (+${10 + bonus} XP, epica +${25 + bonus})</div></div></div>
+    <div class="xlist">${core.map(h => hrow(h, c, true)).join('')}</div>`;
+  if (!core.length) out += `<p class="small muted">Nessuna quest core attiva: scegline almeno una da Io → Le mie abitudini.</p>`;
+  else if (c.doneToday) out += `<div class="donebox">✔ Tutte fatte${c.doneToday.epic ? ', in versione EPICA 💪' : ''}: fiamma accesa</div>`;
+  out += hUpBanner(c, core);
+  const paused = c.H.filter(h => c.pausedNow.has(h.id));
+  if (paused.length) out += `<div class="small dim" style="margin-top:8px">⏸️ In pausa: ${paused.map(h => esc(h.n)).join(', ')} (riprendi da Io → Le mie abitudini).</div>`;
+  return out + `</div>`;
+}
+function extraCardMulti(c){
+  const ex = sortH(c.H.filter(h => h.role === 'extra' && !c.pausedNow.has(h.id))), T = c.T, n = c.xToday.size, N = c.xN, need = c.xNeed, full = N > 0 && n >= N, day = N > 0 && n >= need;
+  if (!ex.length) return '';
+  let st, warn = false;
+  if (full) st = `🖐️ Tutte! Bonus +${EXTRA_FULL_GEM} 💎 e un colpo in più al boss. Serie extra: ${xDays(c.xChain)}.`;
+  else if (day) st = `⚡ Giornata extra fatta (${n}/${N}). Tutte: +${EXTRA_FULL_GEM} 💎.`;
+  else if (c.xBrace) { warn = true; st = `⚠️ Ieri niente extra: con ${need} su ${N} oggi la serie continua (${xDays(c.xChain)}).`; }
+  else st = `${n}/${N} · con ${need} su ${N} la giornata conta per la serie extra.`;
+  const wk = ['L','M','M','G','V','S','D'].map((l, i) => {
+    const d = addD(c.ws, i), k = c.extras.get(d)?.size || 0, Nd = c.xN;
+    return `<div class="wd ${Nd && k >= Nd ? 'epic' : k >= Math.max(1, Math.ceil(Nd * X_RATIO)) && k ? 'done' : ''} ${d === T ? 'today' : ''}">${l}<b>${k || ''}</b></div>`;
+  }).join('');
+  return `<div class="card"><div class="row"><div class="qe">⚡</div><div class="grow"><div class="label">Extra di oggi · ${n} su ${N}</div><b style="font-size:1.2rem">Serie extra: ${xDays(c.xChain)}</b><div class="small muted">record ${c.xBest} · ${c.xTotal} extra in totale</div></div></div>
+    <div class="xlist">${ex.map(h => hrow(h, c, false)).join('')}</div><div class="state ${warn ? 'warn' : ''}">${st}</div><div class="week">${wk}</div>
+    ${hUpBanner(c, ex)}
+    <div class="small dim" style="margin-top:8px">Ogni extra +${EXTRA_GEM} 💎 e +${EXTRA_XP} XP · tutte +${EXTRA_FULL_GEM} 💎 · ogni 7 giorni di serie +${EXTRA_WEEK_GEM} 💎. Non toccano la fiamma.</div></div>`;
+}
+function hSet(id, v){
+  const T = today(); S.ev = S.ev.filter(e => !(e.t === 'h' && e.d === T && e.id === id));
+  v = Math.round(v * 100) / 100; if (v > 0) S.ev.push({t:'h', d:T, id, v:Math.min(1e6, v), ts:Date.now()});
+}
+function hApply(h, v, el){
+  const a = calc();
+  const b = mutate(() => hSet(h.id, v));
+  const was = hDone(h, a.hvToday.get(h.id)?.v), now = hDone(h, v);
+  if (now && !was) { tone(SND.tap); if (el) floatXP(h.role === 'extra' ? `+${EXTRA_GEM} 💎` : '✓', el.getBoundingClientRect()); }
+  if (!a.doneToday && b.doneToday) { tone(SND.done); confetti(140, ['🔥']); toast(`🔥 Tutte le quest fatte: fiamma accesa! ${xDays(b.chain)}`); if (b.chain >= 2 && MILESTONES.includes(b.chain)) toast(`🔥 ${b.chain} giorni di fiamma!`); }
+  else if (a.doneToday && !b.doneToday) toast('Fiamma di oggi in attesa: manca una quest.');
+  if (h.role === 'extra') {
+    if (b.xN && b.xToday.size >= b.xN && a.xToday.size < a.xN) { tone(SND.chest); confetti(100, ['⚡','💎']); toast(`🖐️ Tutte le extra! +${EXTRA_FULL_GEM} 💎`); }
+    else if (b.xToday.size >= b.xNeed && a.xToday.size < a.xNeed) { confetti(60, ['⚡']); toast(`⚡ Giornata extra! Serie: ${xDays(b.xChain)}`); }
+  }
+  const s = b.hstats.get(h.id); if (now && !was && s && s.chain >= 7 && s.chain % 7 === 0) toast(`${h.e} ${esc(h.n)}: ${s.chain} giorni di fila!`);
+  keepData();
+}
+function habitsModal(){
+  const c = calc(), rows = sortH(c.H).map(h => { const paused = c.pausedNow.has(h.id), s = c.hstats.get(h.id) || {chain:0, best:0};
+    return `<div class="hitem"><div class="row"><div class="se">${h.e}</div><div class="grow"><b>${esc(h.n)}</b> <span class="stag ${h.role === 'core' ? 'on' : ''}">${h.role}</span>${paused ? ' <span class="stag">in pausa</span>' : ''}<div class="small muted">${h.type === 'bin' ? 'fatto / non fatto' : `mini ${esc(hUnit(h.mini, h))}${h.epic ? ` · epica ${fmtN(h.epic)}` : ''} · passo ${fmtN(h.step)}`} · ${SLOTS[h.slot]} · serie ${s.chain}, record ${s.best}</div></div></div><div class="hbtns"><button class="btn ghost" data-act="hedit" data-id="${h.id}">✏️ Modifica</button><button class="btn ghost" data-act="hpause" data-id="${h.id}">${paused ? '▶️ Riprendi' : '⏸️ Pausa'}</button></div></div>`; }).join('');
+  showModal(`<div class="mc left"><h2>🗂️ Le mie abitudini</h2>
+  <p class="small muted"><b>Core</b> = la fiamma, al massimo ${CORE_MAX}: tutte fatte e la giornata è accesa. <b>Extra</b> = gemme e serie extra, nessuna punizione. <b>Pausa</b> = quei giorni non contano né a favore né contro.</p>
+  <div class="card" style="padding:4px 12px">${rows}</div>
+  <button class="btn" data-act="hadd">➕ Aggiungi un'abitudine</button><button class="btn ghost" data-act="close">Chiudi</button></div>`);
+}
+function hEditModal(h, isNew){
+  const sel = (id, opts, cur) => `<select class="txt" id="${id}">${opts.map(([v, l]) => `<option value="${v}" ${v === cur ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
+  showModal(`<div class="mc left"><h2>${isNew ? '➕ Nuova abitudine' : `✏️ ${esc(h.n)}`}</h2>
+  <h3>Nome</h3><input class="txt" id="hn" maxlength="40" value="${esc(h.n)}" autocomplete="off">
+  <h3>Emoji</h3><input class="txt" id="he" maxlength="4" value="${esc(h.e)}" autocomplete="off" style="width:90px">
+  <h3>Ruolo</h3>${sel('hrole', [['core','Core (fiamma)'],['extra','Extra (gemme)']], h.role)}
+  <h3>Tipo</h3>${sel('htype', [['bin','Fatto / non fatto'],['num','Un numero (mini ed epica)']], h.type)}
+  <div id="hnumf" ${h.type === 'num' ? '' : 'hidden'}><h3>Unità (al plurale)</h3><input class="txt" id="hunit" maxlength="20" value="${esc(h.unit || '')}" placeholder="minuti, pagine, chiamate…" autocomplete="off">
+  <h3>Mini (tutti i giorni)</h3><input class="txt" id="hmini" inputmode="decimal" value="${h.mini ? fmtN(h.mini) : ''}" autocomplete="off">
+  <h3>Epica (0 = nessuna)</h3><input class="txt" id="hepic" inputmode="decimal" value="${h.epic ? fmtN(h.epic) : '0'}" autocomplete="off">
+  <h3>Passo dei bottoni + e −</h3><input class="txt" id="hstep" inputmode="decimal" value="${h.step ? fmtN(h.step) : '1'}" autocomplete="off"></div>
+  <h3>Fascia</h3>${sel('hslot', Object.entries(SLOTS), h.slot)}
+  <button class="btn gold" data-act="hsave" data-id="${h.id}" data-new="${isNew ? 1 : 0}">Salva</button>
+  ${isNew ? '' : `<button class="link" data-act="hdel" data-id="${h.id}" style="color:var(--bad)">Elimina (la storia nei trofei resta)</button>`}
+  <button class="btn ghost" data-act="close">Annulla</button></div>`, {onShow(m){ $('#htype', m).onchange = ev => { $('#hnumf', m).hidden = ev.target.value !== 'num'; }; }});
 }
 function readUpReady(c){
   if (c.rLv >= READ_FLOORS.length || c.rChain < 7) return false;
@@ -992,6 +1165,7 @@ function readAdd(n){
 }
 function nextMini(m){ return Math.max(m + 1, Math.round(m * 1.2)); }
 function goldiReady(c){
+  if (c.multi) return 0;
   const h = P_().habit;
   if (c.total < 14) return 0;
   if (daysBetween(h.changed || P_().created, c.T) < 14) return 0;
@@ -1052,6 +1226,7 @@ function viewTrophies(c){
   <div class="heat">${rc}</div>
   <div class="legend"><span><i class="r1"></i>fatta</span><span><i class="r2"></i>doppio</span><span><i class="r3"></i>triplo</span><span><i class="r0"></i>sotto il piano</span></div>
   <details><summary>📋 Le letture degli ultimi 14 giorni</summary>${rl || '<p class="muted small">Ancora niente: le pagine o i minuti li segni nella Home.</p>'}</details></div>
+  ${c.multi ? `<div class="card"><b>🗂️ Le mie abitudini · serie</b>${sortH(c.H).map(h => { const s = c.hstats.get(h.id) || {chain:0, best:0, total:0}; return `<div class="diary small"><span>${h.e} <b>${esc(h.n)}</b> <span class="stag ${h.role === 'core' ? 'on' : ''}">${h.role}</span>${c.pausedNow.has(h.id) ? ' <span class="stag">pausa</span>' : ''}</span><br><span class="dim">serie ${s.chain} · record ${s.best} · fatta ${s.total} ${s.total === 1 ? 'volta' : 'volte'}</span></div>`; }).join('')}</div>` : ''}
   <div class="grid3">${b}</div>`;
 }
 function viewShop(c){
@@ -1087,7 +1262,7 @@ function viewMe(c){
    ${p.reward ? `<b>👑 Premio dei 30 giorni di fiamma</b><div class="muted">${esc(p.reward)}</div>` : ''}
    <button class="btn gold" data-act="pact">📜 Il mio patto</button></div>
   <div class="card menu">
-   <button class="btn ghost" data-act="editquest">✏️ Cambia i numeri della quest</button>
+   ${c.multi ? `<button class="btn ghost" data-act="habits">🗂️ Le mie abitudini</button>` : `<button class="btn ghost" data-act="editquest">✏️ Cambia i numeri della quest</button>`}
    <button class="btn ghost" data-act="remind">⏰ Promemoria</button>
    <button class="btn ghost" data-act="suggest">💡 Suggerisci o chiedi aiuto</button>
    <button class="btn ghost" data-act="savegame">💾 Salva partita / altro dispositivo</button>
@@ -1174,6 +1349,7 @@ function helpModal(){
   <p><b>🎁 Baule:</b> uno al giorno dopo la quest. Gemme a sorpresa da spendere nello Shop.</p>
   <p><b>🃏 Carte:</b> le prime 10 quest sbloccano una carta ciascuna, poi una ogni 3, con un trucco da campione.</p>
   <p><b>🙂 Check-in:</b> come stai +5 XP, risposta nel diario +5 XP, giorno di squadra +5 XP.</p>
+  ${isMulti() ? `<p><b>🗂️ Più abitudini:</b> le <b>core</b> (max ${CORE_MAX}) sono la fiamma: tutte fatte, anche solo la mini, e la giornata è accesa; tutte in epica = 2 colpi al boss. Le <b>extra</b> danno gemme e hanno la serie extra (conta con il 60 % fatte; tutte = +${EXTRA_FULL_GEM} 💎 e un colpo in più al boss). Ogni abitudine ha la sua serie in Trofei. Da Io → Le mie abitudini aggiungi, modifichi, metti in pausa.</p>` : ''}
   <p><b>💎 Shop:</b> cappelli e aure li indossa ${esc(P_().buddyName)}, i temi cambiano i colori dell'app. Uno per tipo, si cambiano con «Usa» e «Togli». Il regalo lo rende felice e basta: un ❤️ accanto al suo nome.</p>
   <p><b>📚 Lettura:</b> segni le pagine o i minuti, scegli tu. Raggiunto il piano (all'inizio 1 pagina o 5 minuti) la giornata conta per la <b>serie lettura</b>: +${READ_XP} XP e +${READ_GEM} 💎; doppio del piano +${READ_X2_GEM} 💎, triplo +${READ_X3_GEM} 💎; ogni 7 giorni +${READ_WEEK_GEM} 💎, ogni 30 +${READ_MONTH_GEM} 💎. Dopo 7 giorni di fila l'app ti propone di salire di piano: decidi tu, e puoi sempre scendere.</p>
   <p><b>⚡ Extra:</b> 5 esercizi in più, quando vuoi: piegamenti di mattina, pomeriggio e sera, squat, e plank o addominali a giorni alterni. Ogni extra +${EXTRA_GEM} 💎 e +${EXTRA_XP} XP; tutti e 5 +${EXTRA_FULL_GEM} 💎. Con ${EXTRA_DAY} su 5 la giornata conta per la <b>serie extra</b>, che ha la sua catena e non tocca la fiamma: ogni 7 giorni di serie +${EXTRA_WEEK_GEM} 💎. Li ritrovi tutti in Trofei.</p>
@@ -1229,6 +1405,16 @@ function cleanState(o){
   p.obstacles = (Array.isArray(p.obstacles) ? p.obstacles : []).filter(k => OBST[k]);
   p.bundle = !!p.bundle; if (!TIMES.includes(p.remind)) p.remind = '18:00';
   p.readUnit = p.readUnit === 'min' ? 'min' : 'pag'; p.book = str(p.book, 60);
+  if (Array.isArray(p.habits)) {
+    const seen = new Set(), num = (v, lo, hi) => { const n = parseFloat(v); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, Math.round(n * 100) / 100)) : lo; };
+    p.habits = p.habits.filter(h => h && typeof h === 'object').map(h => {
+      const id = str(h.id, 24).replace(/[^a-z0-9_]/gi, ''); if (!id || seen.has(id)) return null; seen.add(id);
+      const type = h.type === 'num' ? 'num' : 'bin', o = {id, e:str(h.e || '⭐', 8), n:str(h.n || id, 40), role:h.role === 'core' ? 'core' : 'extra', type, slot:Object.hasOwn(SLOTS, h.slot) ? h.slot : 'any', changed:isDay(h.changed) ? h.changed : p.created};
+      if (type === 'num') { o.unit = str(h.unit || 'volte', 20); o.one = h.one ? str(h.one, 20) : undefined; o.mini = num(h.mini, 0.01, 1e6); o.epic = num(h.epic, 0, 1e6); if (o.epic && o.epic <= o.mini) o.epic = 0; o.step = num(h.step, 0.01, 1e6); }
+      return o;
+    }).filter(Boolean).slice(0, HABITS_MAX);
+    if (!p.habits.length) delete p.habits;
+  } else delete p.habits;
   if (p.sig && !SIG_RE.test(p.sig)) p.sig = null;
   if (p.sigv && !validSigv(p.sigv)) p.sigv = null;
   if (p.signed && !isDay(p.signed)) p.signed = p.created;
@@ -1244,6 +1430,8 @@ function cleanState(o){
       case 'award': return {t:'award', d:e.d, id:str(e.id, 30)};
       case 'read': return ['pag','min'].includes(e.u) && int(e.n, 0, 999) >= 1 ? {t:'read', d:e.d, u:e.u, n:int(e.n, 1, 999), ts:Number.isFinite(e.ts) ? e.ts : null} : null;
       case 'readfloor': return {t:'readfloor', d:e.d, lv:int(e.lv, 1, READ_FLOORS.length)};
+      case 'h': { const v = parseFloat(e.v); return /^[a-z0-9_]{1,24}$/i.test(e.id || '') && Number.isFinite(v) && v > 0 ? {t:'h', d:e.d, id:e.id, v:Math.min(1e6, Math.round(v * 100) / 100), ts:Number.isFinite(e.ts) ? e.ts : null} : null; }
+      case 'hp': return /^[a-z0-9_]{1,24}$/i.test(e.id || '') ? {t:'hp', d:e.d, id:e.id, on:e.on ? 1 : 0} : null;
       case 'sugg': return e.a ? {t:'sugg', d:e.d, k:suggKindOf(e.k)[0], a:str(e.a, 1000)} : null;
       case 'extra': return EXTRA.some(x => x.k === e.k) ? {t:'extra', d:e.d, k:e.k, ts:Number.isFinite(e.ts) ? e.ts : null} : null;
       case 'buy': { const s = shopItem(e.item); return s ? {t:'buy', d:e.d, item:s.id, cost:s.cost} : null; }
@@ -1352,6 +1540,38 @@ const ACT = {
   },
   chest: openChest,
   suggest: suggestModal,
+  htoggle: el => { const h = hById(el.dataset.id); if (!h || h.type !== 'bin') return; const v = calc().hvToday.get(h.id)?.v || 0; hApply(h, v >= 1 ? 0 : 1, el); },
+  hplus: el => { const h = hById(el.dataset.id); if (!h || h.type !== 'num') return; const v = calc().hvToday.get(h.id)?.v || 0; hApply(h, Math.max(0, v + (+el.dataset.d) * (h.step || 1)), el); },
+  hnum: el => { const h = hById(el.dataset.id); if (!h) return; showModal(`<div class="mc"><h2>${h.e} ${esc(h.n)}</h2><p class="small muted">Totale di oggi, in ${esc(h.unit || 'volte')}.</p><input class="txt" id="hnv" inputmode="decimal" value="${fmtN(calc().hvToday.get(h.id)?.v || 0)}" autocomplete="off" aria-label="Numero"><button class="btn ok" data-act="hnumset" data-id="${h.id}">Segna</button><button class="btn ghost" data-act="close">Annulla</button></div>`); },
+  hnumset: el => { const h = hById(el.dataset.id); const v = parseFloat(String($('#hnv')?.value || '').replace(',', '.')); if (!h || !(v >= 0 && v <= 1e6)) return toast('Scrivi un numero'); MQ.length = 0; $('#modal')._opt = {}; nextModal(); hApply(h, v, null); },
+  hup: el => { const h = hById(el.dataset.id); if (!h) return; const nx = hNext(h); h.mini = nx; if (h.epic && h.epic <= nx) h.epic = Math.round(nx * 1.5 / (h.step || 1)) * (h.step || 1); h.changed = today(); save(); render(); confetti(80); toast(`🪜 ${esc(h.n)}: mini ${hUnit(nx, h)}`); },
+  hno: el => { S.ui.hNo ||= {}; S.ui.hNo[el.dataset.id] = today(); save(); render(); toast('Ok, resti così. Decidi tu.'); },
+  habits: habitsModal,
+  hpause: el => { const h = hById(el.dataset.id); if (!h) return; const on = calc().pausedNow.has(h.id) ? 0 : 1; S.ev.push({t:'hp', d:today(), id:h.id, on}); save(); MQ.length = 0; $('#modal')._opt = {}; nextModal(); render(); habitsModal(); toast(on ? `⏸️ ${esc(h.n)} in pausa da oggi` : `▶️ ${esc(h.n)} riparte oggi`); },
+  hedit: el => { const h = hById(el.dataset.id); if (!h) return; MQ.length = 0; $('#modal')._opt = {}; nextModal(); hEditModal({...h}, false); },
+  hadd: () => {
+    const have = new Set(P_().habits.map(h => h.id)), free = CATALOG.filter(h => !have.has(h.id));
+    MQ.length = 0; $('#modal')._opt = {}; nextModal();
+    showModal(`<div class="mc left"><h2>➕ Aggiungi</h2>${free.length ? `<p class="small muted">Dal catalogo (un tocco):</p><div class="chips">${free.map(h => `<button class="chip" data-act="haddpick" data-id="${h.id}">${h.e} ${esc(h.n)}</button>`).join('')}</div>` : ''}<button class="btn" data-act="haddnew">✍️ Una mia</button><button class="btn ghost" data-act="close">Annulla</button></div>`);
+  },
+  haddpick: el => { const base = CATALOG.find(h => h.id === el.dataset.id); if (!base || P_().habits.length >= HABITS_MAX) return; MQ.length = 0; $('#modal')._opt = {}; nextModal(); hEditModal({...base, role:'extra', changed:today()}, true); },
+  haddnew: () => { if (P_().habits.length >= HABITS_MAX) return toast(`Massimo ${HABITS_MAX} abitudini`); MQ.length = 0; $('#modal')._opt = {}; nextModal(); hEditModal({id:'c' + Date.now().toString(36), e:'⭐', n:'', role:'extra', type:'bin', unit:'volte', mini:1, epic:0, step:1, slot:'any', changed:today()}, true); },
+  hsave: el => {
+    const m = $('#modal'), isNew = el.dataset.new === '1', id = el.dataset.id, p = P_();
+    const n = ($('#hn', m)?.value || '').trim(), e = ($('#he', m)?.value || '').trim() || '⭐', role = $('#hrole', m)?.value === 'core' ? 'core' : 'extra', type = $('#htype', m)?.value === 'num' ? 'num' : 'bin', slot = $('#hslot', m)?.value || 'any';
+    if (!n) return toast('Dalle un nome');
+    const num = s => parseFloat(String(s || '').replace(',', '.'));
+    const o = {id, e:e.slice(0, 8), n:n.slice(0, 40), role, type, slot:Object.hasOwn(SLOTS, slot) ? slot : 'any'};
+    if (type === 'num') { o.unit = (($('#hunit', m)?.value || '').trim() || 'volte').slice(0, 20); o.mini = num($('#hmini', m)?.value); o.epic = num($('#hepic', m)?.value) || 0; o.step = num($('#hstep', m)?.value) || 1; if (!(o.mini > 0)) return toast('La mini deve essere più di zero'); if (o.epic && o.epic <= o.mini) return toast('L\'epica deve essere più della mini (o 0)'); if (!(o.step > 0)) o.step = 1; }
+    const others = p.habits.filter(h => h.id !== id);
+    if (role === 'core' && others.filter(h => h.role === 'core').length >= CORE_MAX) return toast(`Massimo ${CORE_MAX} core: sposta un'altra a extra prima`);
+    const old = p.habits.find(h => h.id === id);
+    o.changed = old && old.type === type && old.mini === o.mini ? old.changed : today();
+    if (old) Object.assign(old, o); else p.habits.push(o);
+    save(); MQ.length = 0; $('#modal')._opt = {}; nextModal(); render(); habitsModal(); toast(isNew ? `➕ ${esc(o.n)} aggiunta` : 'Salvato ✓');
+  },
+  hdel: el => { const h = hById(el.dataset.id); if (!h) return; MQ.length = 0; $('#modal')._opt = {}; nextModal(); showModal(`<div class="mc"><h2>Elimino «${esc(h.n)}»?</h2><p class="small muted">Sparisce dalla lista. Se la rimetti con lo stesso nome dal catalogo, la storia torna.</p><button class="btn" style="background:var(--bad);box-shadow:0 5px 0 #b02a48" data-act="hdelok" data-id="${h.id}">Sì, elimina</button><button class="btn ghost" data-act="close">No</button></div>`); },
+  hdelok: el => { const p = P_(); p.habits = p.habits.filter(h => h.id !== el.dataset.id); save(); MQ.length = 0; $('#modal')._opt = {}; nextModal(); render(); if (p.habits.length) habitsModal(); },
   readunit: el => { if (!['pag','min'].includes(el.dataset.v)) return; P_().readUnit = el.dataset.v; save(); render(); tone(SND.tap); },
   read: el => readAdd(+el.dataset.n),
   readother: () => showModal(`<div class="mc"><h2>📚 ${(P_().readUnit || 'pag') === 'min' ? 'Quanti minuti?' : 'Quante pagine?'}</h2><input class="txt" id="rn" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off" aria-label="Numero"><button class="btn ok" data-act="readadd">Segna</button><button class="btn ghost" data-act="close">Annulla</button></div>`),
@@ -1428,7 +1648,7 @@ const ACT = {
     else { S.ui.goldiNo = today(); save(); render(); toast('Ok, resti così. Decidi tu.'); }
   },
   pact: () => showModal(`<div class="mc">${pactHTML(P_())}<button class="btn" data-act="close">Chiudi</button></div>`),
-  editquest: editQuestModal, remind: remindModal,
+  editquest: () => isMulti() ? habitsModal() : editQuestModal(), remind: remindModal,
   remindtime: el => { if (!TIMES.includes(el.dataset.v)) return; P_().remind = el.dataset.v; save(); MQ.length = 0; $('#modal')._opt = {}; nextModal(); remindModal(); },
   reminddone: () => { S.ui.remindDone = 1; S.ui.remindAt = P_().remind; save(); closeModal(); toast('⏰ Promemoria attivo ✓'); },
   savegame: saveModal,
@@ -1479,8 +1699,9 @@ function pactHTML(p){
   const ob = (p.obstacles || []).filter(k => OBST[k]);
   return `<div class="pact"><div class="pact-title">📜 IL PATTO</div>
     <p>Io, <b>${esc(cap1(p.name))}</b>, sono uno che <b>${esc(p.identity)}</b>.</p>
-    <p><b>${esc(p.cue)}</b>, farò <b>${esc(qty(p.habit.mini, p.habit))}</b> ${esc(p.place)}.</p>
-    <p>Nei giorni da campione: <b>${esc(qty(p.habit.epic, p.habit))}</b>.</p>
+    ${Array.isArray(p.habits) && p.habits.length ? `<p><b>${esc(p.cue)}</b>, ${esc(p.place)}, ogni giorno le mie quest:</p><ul>${sortH(p.habits.filter(h => h.role === 'core')).map(h => `<li>${h.e} <b>${esc(hLine(h))}</b>${h.type === 'num' && h.epic ? ` <span class="small">(epica ${esc(hUnit(h.epic, h))})</span>` : ''}</li>`).join('')}</ul><p>E quando posso, ${p.habits.filter(h => h.role === 'extra').length} extra in più.</p>`
+    : `<p><b>${esc(p.cue)}</b>, farò <b>${esc(qty(p.habit.mini, p.habit))}</b> ${esc(p.place)}.</p>
+    <p>Nei giorni da campione: <b>${esc(qty(p.habit.epic, p.habit))}</b>.</p>`}
     ${ob.length ? `<ul>${ob.map(k => `<li>Se <b>${OBST[k].l}</b> → ${planFor(k, p)}</li>`).join('')}</ul>` : ''}
     ${p.bundle ? '<p>🎮 Prima la quest, poi console o telefono.</p>' : ''}
     <p><b>Mai due giorni di fila.</b></p>
@@ -1497,14 +1718,15 @@ function startWizard(prev){
     habitKey: prev.habit.key, cLabel: prev.habit.key === 'altro' ? prev.habit.label : '', cUnit: prev.habit.key === 'altro' ? prev.habit.unit : '',
     cOne: prev.habit.key === 'altro' ? (prev.habit.one || '') : '',
     mini: prev.habit.mini, epic: prev.habit.epic,
-    cue: CUES.includes(prev.cue) ? prev.cue : 'altro', cueOther: CUES.includes(prev.cue) ? '' : prev.cue, place: prev.place,
+    cue: [...CUES, ...CUES_ADULT].includes(prev.cue) ? prev.cue : 'altro', cueOther: [...CUES, ...CUES_ADULT].includes(prev.cue) ? '' : prev.cue, place: prev.place,
     bundle: prev.bundle, song: prev.song||'', obst:[...(prev.obstacles||[])],
     partner: prev.partnerKind && PARTNERS.includes(prev.partnerKind) ? prev.partnerKind : !prev.partner ? 'Da solo' : PARTNERS.includes(prev.partner) ? prev.partner : 'Un amico',
     partnerName: PARTNERS.includes(prev.partner) ? '' : (prev.partner||''),
     reward: [...REWARDS, ...REWARDS_ADULT].includes(prev.reward) ? prev.reward : (prev.reward ? 'altro' : ''), rewardOther: [...REWARDS, ...REWARDS_ADULT].includes(prev.reward) ? '' : (prev.reward||''),
     remind: prev.remind || '18:00', sigv: null, _l1up:true, _l1down:true, _quiz:'B', _redo:true,
+    multi: !!(prev.habits?.length), hsel:(prev.habits || []).map(h => h.id), hcore:(prev.habits || []).filter(h => h.role === 'core').map(h => h.id), readLv:'1', _skipLessons: !!(prev.habits?.length),
   } : {name:'', age:'', buddy:'', buddyName:'', goals:[], goalOther:'', why:[], identity:'', identityOther:'', habitKey:'', cLabel:'', cUnit:'', mini:0, epic:0,
-       cue:'', cueOther:'', place:'', bundle:null, song:'', obst:[], partner:'', partnerName:'', reward:'', rewardOther:'', remind:'18:00', sigv:null};
+       cue:'', cueOther:'', place:'', bundle:null, song:'', obst:[], partner:'', partnerName:'', reward:'', rewardOther:'', remind:'18:00', sigv:null, multi:false, hsel:[], hcore:[], readLv:'1', _skipLessons:false};
 }
 function chip(field, val, label, {multi=0, extra=''}={}){
   const on = multi ? (W[field]||[]).includes(val) : String(W[field]) === String(val);
@@ -1515,6 +1737,8 @@ const cueOf = () => W.cue === 'altro' ? W.cueOther.trim() : W.cue;
 const partnerOf = () => W.partner === 'Da solo' ? '' : (['Fratello o sorella','Un amico'].includes(W.partner) ? W.partnerName.trim() : W.partner);
 const needsPartnerName = () => ['Fratello o sorella','Un amico'].includes(W.partner);
 const wAdult = () => W.age === 'Adulto';
+const wCatalog = () => { const prev = S.profile?.habits || [], ids = new Set(CATALOG.map(h => h.id)); return [...CATALOG, ...prev.filter(h => !ids.has(h.id))]; };
+const wHabit = id => wCatalog().find(h => h.id === id);
 
 const STEPS = [
   {id:'intro', next:'Iniziamo ▶', ok:()=>true, html:()=> W._redo ? `
@@ -1530,13 +1754,14 @@ const STEPS = [
     <h2>Ok player, come ti chiami?</h2>
     <input class="txt" data-field="name" maxlength="20" placeholder="Il tuo nome" value="${esc(W.name)}" autocomplete="off" aria-label="Il tuo nome">
     <h3>Quanti anni hai?</h3>
-    <div class="chips">${['10','11','12','13','14','15','16','17','18+','Adulto'].map(a => chip('age', a, a)).join('')}</div>`},
+    <div class="chips">${['10','11','12','13','14','15','16','17','18+','Adulto'].map(a => chip('age', a, a)).join('')}</div>
+    ${wAdult() ? `<h3>Le 7 lezioni di Atomic Habits</h3><div class="chips col">${chip('_skipLessons', false, '📚 Le faccio, sono brevi')}${chip('_skipLessons', true, '⏭️ Le conosco già: salto quelle senza scelte')}</div>` : ''}`},
   {id:'buddy', ok:()=>W.buddy, html:()=>`
     <h2>Scegli il tuo buddy</h2>
     <p class="muted">Adesso è un uovo. Cresce quando cresci tu: ogni quest gli dà XP, e ai livelli 2, 5 e 10 si evolve fino alla forma finale.</p>
     <div class="buddy-pick">${Object.entries(BUDDIES).map(([k,b]) => `<button class="bp ${W.buddy===k?'on':''}" data-act="wz-chip" data-f="buddy" data-v="${k}" aria-pressed="${W.buddy===k}"><span class="e">${b.stages[3]}</span><b>${b.label}</b><span class="evo">${b.stages.join(' → ')}</span></button>`).join('')}</div>
     ${W.buddy ? `<h3>Come lo chiami?</h3><input class="txt" data-field="buddyName" maxlength="16" placeholder="${BUDDIES[W.buddy].def}" value="${esc(W.buddyName)}" autocomplete="off" aria-label="Nome del buddy">` : ''}`},
-  {id:'l1', ok:()=>W._l1up || W._l1down, html:()=>`
+  {id:'l1', skip:()=>W._skipLessons, ok:()=>W._l1up || W._l1down, html:()=>`
     <span class="lesson">📚 Lezione 1 · Il trucco dell'1%</span>
     <h2>Cosa succede se migliori solo dell'1% al giorno?</h2>
     <p class="muted">Tocca i due bottoni e guarda cosa succede in un anno.</p>
@@ -1561,13 +1786,24 @@ const STEPS = [
     <h3>Pensa a chi vuoi diventare e completa la frase: «Io sono uno che…»</h3>
     <div class="chips col">${IDENT.map(i => chip('identity', i, '…' + i)).join('')}${chip('identity','altro','✍️ La scrivo io (come voglio diventare)')}</div>
     ${W.identity === 'altro' ? `<input class="txt" data-field="identityOther" maxlength="60" placeholder="…per esempio: si allena anche quando è stanco" value="${esc(W.identityOther)}" autocomplete="off" aria-label="La mia frase">` : ''}`},
-  {id:'habit', ok:()=>W.habitKey && (W.habitKey !== 'altro' || (W.cLabel.trim() && W.cUnit.trim())), html:()=>`
+  {id:'habit', ok:()=>W.multi ? W.hsel.length >= 1 : (W.habitKey && (W.habitKey !== 'altro' || (W.cLabel.trim() && W.cUnit.trim()))), html:()=> W.multi || wAdult() ? `
+    <h2>${W.multi ? 'Le tue abitudini' : 'Scegli la tua prima quest'}</h2>
+    <div class="chips col">${chip('multi', true, '🗂️ Più abitudini insieme (consigliato per un adulto)')}${chip('multi', false, '🎯 Una quest sola, come un ragazzo')}</div>
+    ${W.multi ? `<h3>Dal catalogo: togli e aggiungi</h3><p class="small muted">Numeri, nomi e fasce li cambi dopo da Io → Le mie abitudini, dove aggiungi anche le tue.</p>
+    <div class="chips">${wCatalog().map(h => chip('hsel', h.id, `${h.e} ${esc(h.n)}`, {multi:HABITS_MAX})).join('')}</div>
+    <h3>📚 Lettura: da dove parti?</h3><div class="chips col">${chip('readLv', '1', 'Piano 1 · 1 pagina o 5 minuti')}${chip('readLv', '4', 'Piano 4 · 8 pagine o 15 minuti')}${chip('readLv', '7', 'Piano 7 · 20 pagine o 30 minuti')}</div>` : `
+    <div class="chips">${Object.entries(HABITS).map(([k,h]) => chip('habitKey', k, `${h.emoji} ${h.label}`)).join('')}${chip('habitKey','altro','✍️ Altro')}</div>
+    ${W.habitKey === 'altro' ? `<h3>Come si chiama?</h3><input class="txt" data-field="cLabel" maxlength="30" placeholder="Per esempio: corsa" value="${esc(W.cLabel)}" autocomplete="off" aria-label="Nome della quest"><h3>Cosa conti? (al plurale)</h3><input class="txt" data-field="cUnit" maxlength="30" placeholder="Per esempio: minuti di corsa" value="${esc(W.cUnit)}" autocomplete="off" aria-label="Cosa conti"><h3>E quando è uno solo? (se vuoi)</h3><input class="txt" data-field="cOne" maxlength="30" placeholder="Per esempio: minuto di corsa" value="${esc(W.cOne || '')}" autocomplete="off" aria-label="Al singolare">` : ''}`}` : `
     <h2>Scegli la tua prima quest</h2>
     <p class="muted">Una sola, per cominciare. Quando diventa automatica, potrai alzarla o cambiarla.</p>
     <div class="chips">${Object.entries(HABITS).map(([k,h]) => chip('habitKey', k, `${h.emoji} ${h.label}`)).join('')}${chip('habitKey','altro','✍️ Altro')}</div>
     ${W.habitKey && W.habitKey !== 'altro' && HABITS[W.habitKey].tip ? `<div class="say small">${HABITS[W.habitKey].tip}</div>` : ''}
     ${W.habitKey === 'altro' ? `<h3>Come si chiama?</h3><input class="txt" data-field="cLabel" maxlength="30" placeholder="Per esempio: corsa" value="${esc(W.cLabel)}" autocomplete="off" aria-label="Nome della quest"><h3>Cosa conti? (al plurale)</h3><input class="txt" data-field="cUnit" maxlength="30" placeholder="Per esempio: minuti di corsa" value="${esc(W.cUnit)}" autocomplete="off" aria-label="Cosa conti"><h3>E quando è uno solo? (se vuoi)</h3><input class="txt" data-field="cOne" maxlength="30" placeholder="Per esempio: minuto di corsa" value="${esc(W.cOne || '')}" autocomplete="off" aria-label="Al singolare">` : ''}`},
-  {id:'mini', ok:()=>W.mini >= 1 && W.epic > W.mini, html:()=>{ const h = habitOf(); return `
+  {id:'hcore', skip:()=>!W.multi, ok:()=>W.hcore.length >= 1 && W.hcore.every(id => W.hsel.includes(id)), html:()=>`
+    <h2>Quali sono le tue quest core?</h2>
+    <p class="muted">Da 1 a ${CORE_MAX}. La fiamma 🔥 si accende quando le hai fatte tutte, basta la mini. Le altre sono extra: gemme e la loro serie, nessuna punizione se saltano.</p>
+    <div class="chips col">${W.hsel.map(id => wHabit(id)).filter(Boolean).map(h => chip('hcore', h.id, `${h.e} ${esc(h.n)}${h.type === 'num' ? ` <span class="small">· mini ${esc(hUnit(h.mini, h))}</span>` : ''}`, {multi:CORE_MAX})).join('')}</div>`},
+  {id:'mini', skip:()=>W.multi, ok:()=>W.mini >= 1 && W.epic > W.mini, html:()=>{ const h = habitOf(); return `
     <span class="lesson">📚 Lezione 3 · La regola dei due minuti</span>
     <h2>Il segreto è partire piccolissimo.</h2>
     <div class="say">La quest di tutti i giorni deve essere così facile che dire di no sarebbe ridicolo. Chi molla di solito parte troppo forte. <b>Il trucco è esserci tutti i giorni, anche con poco.</b></div>
@@ -1583,11 +1819,11 @@ const STEPS = [
     <h2>Quando e dove?</h2>
     <p class="muted">Il cervello ricorda molto meglio «dopo X faccio Y» che «prima o poi la faccio».</p>
     <h3>Il tuo segnale: quando, di preciso?</h3>
-    <div class="chips col">${CUES.map(c => chip('cue', c, c)).join('')}${chip('cue','altro','✍️ Lo scrivo io')}</div>
+    <div class="chips col">${(wAdult() ? CUES_ADULT : CUES).map(c => chip('cue', c, c)).join('')}${chip('cue','altro','✍️ Lo scrivo io')}</div>
     ${W.cue === 'altro' ? `<input class="txt" data-field="cueOther" maxlength="60" placeholder="Per esempio: Dopo l'allenamento di calcio" value="${esc(W.cueOther)}" autocomplete="off" aria-label="Il mio segnale">` : ''}
-    <h3>Dove?</h3><div class="chips">${PLACES.map(p => chip('place', p, p)).join('')}</div>
+    <h3>Dove?</h3><div class="chips">${(wAdult() ? PLACES_ADULT : PLACES).map(p => chip('place', p, p)).join('')}</div>
     <div class="sentence" id="live-when"></div>`},
-  {id:'bundle', ok:()=>W.bundle !== null, html:()=>`
+  {id:'bundle', skip:()=>W._skipLessons, ok:()=>W.bundle !== null, html:()=>`
     <span class="lesson">📚 Lezione 5 · Rendila attraente</span>
     <h2>Il patto della console</h2>
     <div class="say">Trucco da pro: attacca la cosa che <b>devi</b> fare a una che ti <b>piace</b>. Prima la quest, poi il gioco. Così la quest diventa la chiave che apre il divertimento.</div>
@@ -1602,7 +1838,7 @@ const STEPS = [
     <p class="muted">I campioni decidono prima cosa faranno quando arriva l'ostacolo. Scegline fino a 3.</p>
     <div class="chips">${Object.entries(OBST).map(([k,o]) => chip('obst', k, `${o.e} ${cap1(o.l)}`, {multi:3})).join('')}</div>
     ${W.obst.length ? `<div class="sentence">${W.obst.map(k => `Se <b>${OBST[k].l}</b> → ${planFor(k, {song:W.song, habitKey:W.habitKey})}`).join('<br>')}</div>` : ''}`},
-  {id:'quiz', ok:()=>W._quiz === 'B', html:()=>`
+  {id:'quiz', skip:()=>W._skipLessons, ok:()=>W._quiz === 'B', html:()=>`
     <span class="lesson">📚 Lezione 7 · Mai due di fila</span>
     <h2>Quiz! Ieri hai saltato la quest. Oggi cosa fai?</h2>
     <div class="chips col quiz">${chip('_quiz','A','A · Lascio perdere, tanto la serie è rotta')}${chip('_quiz','B','B · Faccio la mini, anche se non ho voglia')}</div>
@@ -1633,13 +1869,23 @@ const STEPS = [
     <div id="hatch-m"></div>`},
 ];
 function draftProfile(){
-  const h = habitOf(), prev = S.profile;
+  const prev = S.profile;
+  let habits, h;
+  if (W.multi) {
+    const prevH = new Map((prev?.habits || []).map(x => [x.id, x]));
+    habits = W.hsel.map(id => { const base = prevH.get(id) || CATALOG.find(x => x.id === id); return base ? {...base, role: W.hcore.includes(id) ? 'core' : 'extra', changed: base.changed || today()} : null; }).filter(Boolean);
+    const c0 = habits.find(x => x.role === 'core') || habits[0];
+    h = {label:c0.n, emoji:c0.e, unit:c0.unit || 'volte', one:c0.one, mini:c0.type === 'num' ? Math.max(1, Math.round(c0.mini)) : 1, epic:c0.type === 'num' && c0.epic > c0.mini ? Math.max(2, Math.round(c0.epic)) : 2};
+    W.mini = h.mini; W.epic = h.epic; W.habitKey = 'altro';
+  } else h = habitOf();
   return {
+    ...(habits ? {habits} : {}),
     name:cap1(W.name.trim()), age:W.age, buddy:W.buddy, buddyName:W.buddyName.trim() || BUDDIES[W.buddy]?.def || 'Buddy',
     goals:[...W.goals], goalOther:W.goalOther.trim(), why:[...W.why],
     identity: W.identity === 'altro' ? W.identityOther.trim() : W.identity,
     habit:{key:W.habitKey, label:h.label, emoji:h.emoji, unit:h.unit, one:h.one, mini:+W.mini, epic:+W.epic,
            changed: prev && prev.habit.key === W.habitKey && prev.habit.mini === +W.mini ? prev.habit.changed : today()},
+    readUnit: prev?.readUnit, book: prev?.book,
     cue:cap1(cueOf()), place:W.place, bundle:!!W.bundle, song:W.song.trim(), obstacles:[...W.obst], partner:partnerOf(), partnerKind:W.partner,
     reward: W.reward === 'altro' ? W.rewardOther.trim() : W.reward, remind:W.remind, sigv:W.sigv, sig:null,
     created: prev?.created || today(), signed: today(),
@@ -1662,7 +1908,7 @@ function wzLive(){
   const st = STEPS[WI]; const nb = $('#wz-next'); if (nb) nb.disabled = !st.ok();
   for (const f of ['mini','epic']) { const hn = $('#hint-' + f); if (hn) hn.hidden = !W['_bad_' + f]; }
   const lw = $('#live-when');
-  if (lw) { const c = cueOf(), h = habitOf(); lw.innerHTML = c && W.place ? `«${esc(c)}, farò <b>${esc(qty(W.mini, h))}</b> ${esc(W.place)}.»` : '<span style="opacity:.6">«Quando…, farò…»</span>'; }
+  if (lw) { const c = cueOf(), h = habitOf(); lw.innerHTML = c && W.place ? `«${esc(c)}, ${W.multi ? 'faccio le mie quest' : `farò <b>${esc(qty(W.mini, h))}</b>`} ${esc(W.place)}.»` : '<span style="opacity:.6">«Quando…, farò…»</span>'; }
 }
 function sigPad(cv){
   const r0 = cv.getBoundingClientRect(), d = devicePixelRatio || 1;
@@ -1706,13 +1952,13 @@ function hatch(){
     $('#hatch-m').innerHTML = redo
       ? `<div class="say">Da oggi vale questo patto: <b>${esc(questLine())}</b>.</div>`
       : `<p class="center"><b>+60 XP</b> per il patto firmato → <b>Livello 2</b>!</p>
-         <div class="say">Ultima cosa, la più importante: la prima quest si fa <b>adesso</b>, finché sei carico. <b>${esc(questLine())}</b>. Poi premi FATTO.</div>
+         <div class="say">Ultima cosa, la più importante: la prima quest si fa <b>adesso</b>, finché sei carico. <b>${esc(questLine())}</b>. ${W.multi ? 'Poi segnala nella Home.' : 'Poi premi FATTO.'}</div>
          <p class="small dim center">⏰ Il promemoria lo attivi dalla home, in 30 secondi.</p>`;
     tone(SND.level); confetti(220, ['⭐','🔥','✨']);
     nb.style.visibility = 'visible';
   }, 1600);
 }
-const gotoStep = i => { WI = i; if (STEPS[WI].id === 'pact') W.sigv = null; renderWizard(); scrollTo(0,0); };
+const gotoStep = i => { const dir = i >= WI ? 1 : -1; WI = i; while (STEPS[WI]?.skip?.()) WI += dir; if (STEPS[WI].id === 'pact') W.sigv = null; renderWizard(); scrollTo(0,0); };
 const WACT = {
   'wz-next': () => {
     const st = STEPS[WI]; if (!st.ok()) return;
@@ -1720,6 +1966,7 @@ const WACT = {
     if (st.id === 'pact') {
       S.profile = draftProfile(); S.ui.awardInit = 1;
       if (!S.ev.some(e => e.t === 'bonus' && e.why === 'patto')) S.ev.push({t:'bonus', d:today(), xp:60, why:'patto'});
+      if (W.multi && +W.readLv > 1 && !S.ev.some(e => e.t === 'readfloor')) S.ev.push({t:'readfloor', d:today(), lv:+W.readLv});
       save(); keepData();
     }
     if (st.id === 'hatch') { W = null; S.ui.tab = 'home'; save(); render(); scrollTo(0,0); return; }
@@ -1733,10 +1980,12 @@ const WACT = {
     if (max) {
       const a = W[f]; const i = a.indexOf(v);
       if (i >= 0) a.splice(i, 1); else { if (a.length >= max) { toast(`Massimo ${max}`); return; } a.push(v); }
+      if (f === 'hsel') W.hcore = W.hcore.filter(id => W.hsel.includes(id));
     } else {
       W[f] = v;
       if (f === 'habitKey') { const h = HABITS[v]; W.mini = h ? h.minis[0] : 0; W.epic = h ? h.epics[1] : 0; }
-      if (f === 'age' && v === 'Adulto') W.goals = W.goals.filter(g => g !== 'papa');
+      if (f === 'age' && v === 'Adulto') { W.goals = W.goals.filter(g => g !== 'papa'); if (!W.hsel.length) { W.multi = true; W.hsel = CATALOG.map(h => h.id); W.hcore = CATALOG.filter(h => h.role === 'core').map(h => h.id); } }
+      if (f === 'age' && v !== 'Adulto') W.multi = false;
     }
     tone(SND.tap); renderWizard();
   },
