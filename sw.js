@@ -1,5 +1,5 @@
 // Level Up: funziona anche offline. pubblica.py alza la versione a ogni pubblicazione.
-const C = 'levelup-v6';
+const C = 'levelup-v7';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(C).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 // Cancella solo le cache vecchie di Level Up: l'origine è condivisa con altri tool.

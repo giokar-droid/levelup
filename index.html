@@ -276,17 +276,19 @@ ol{padding-left:1.3em; margin:.4em 0} ol li{margin:.25em 0; line-height:1.35}
 <canvas id="fx" aria-hidden="true"></canvas>
 <script>
 'use strict';
-const VERSION = '2.1';
+const VERSION = '2.2';
 const KEY = 'levelup.v1';
 const P = new URLSearchParams(location.search);
 const DEV = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
 
 /* ---------- date ---------- */
+let viewDay = null;   // 'AAAA-MM-GG' mentre si segna ieri: tutta l'app lavora su quel giorno; non si salva
 function now(){
-  const n = new Date(), o = DEV ? P.get('oggi') : null;
-  if (o && /^\d{4}-\d\d-\d\d$/.test(o)) { const [y,m,d] = o.split('-').map(Number); return new Date(y, m-1, d, n.getHours(), n.getMinutes(), n.getSeconds()); }
+  const n = new Date(), o = DEV ? P.get('oggi') : null, k = viewDay || (o && /^\d{4}-\d\d-\d\d$/.test(o) ? o : null);
+  if (k) { const [y,m,d] = k.split('-').map(Number); return new Date(y, m-1, d, n.getHours(), n.getMinutes(), n.getSeconds()); }
   return n;
 }
+const realToday = () => { const v = viewDay; viewDay = null; const t = dk(now()); viewDay = v; return t; };
 const pad = n => String(n).padStart(2,'0');
 const dk = dt => `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}`;
 const pd = k => { const [y,m,d] = k.split('-').map(Number); return new Date(y, m-1, d); };
@@ -881,6 +883,7 @@ function moodReply(c, m){
 
 function bubbleText(c){
   const p = P_(), name = pname(), line = byDay(LINES, c.T);
+  if (viewDay) return `Stai segnando ieri, ${name}. Metti quello che hai fatto davvero, poi torna a oggi.`;
   if (c.multi) {
     const act = c.H.filter(h => !c.pausedNow.has(h.id)), core = sortH(act.filter(h => h.role === 'core')), goals = sortH(act.filter(h => h.role === 'goal')), val = h => c.hvToday.get(h.id)?.v || 0;
     const low = c.moodToday?.m && c.moodToday.m <= 2;
@@ -956,7 +959,8 @@ function renderTabs(c){
   t.firstElementChild.innerHTML = items.map(([k,e,l]) => `<button class="${S.ui.tab===k?'on':''}" data-act="tab" data-v="${k}" aria-label="${l}"><span aria-hidden="true">${e}</span>${l}${k==='cards' && c.cards > S.ui.seen ? '<i class="dot"></i>' : ''}</button>`).join('');
 }
 function topbar(c){
-  return `<div class="topbar">
+  const ieri = viewDay ? `<div class="banner small" style="margin-top:10px"><b>📅 Stai segnando ieri, ${fmtDate(viewDay)}.</b> Solo quello che hai fatto davvero: il gioco funziona se è onesto. Il baule di ieri è perso.<div class="btns"><button class="btn" data-act="oggi">↩️ Torna a oggi</button></div></div>` : '';
+  return `${ieri}<div class="topbar">
     <span class="pill lv">LV ${c.lv}</span><span class="grow"></span>
     <span class="pill" aria-label="gemme">💎 ${c.gems}</span><span class="pill" aria-label="scudi">🛡️ ${c.shields}</span>
     <button class="iconbtn" data-act="help" aria-label="Come funziona">❓</button>
@@ -988,6 +992,7 @@ function viewHome(c){
   const p = P_(), h = p.habit, T = c.T, y = addD(T, -1);
   let out = topbar(c);
   out += `<div class="buddy-zone">${buddyHTML(c)}<div class="bname">${esc(p.buddyName)} · ${buddyStageName(c.stage)}${c.gifts ? ` · ❤️ ${c.gifts} ${c.gifts === 1 ? 'regalo' : 'regali'}` : ''}</div><div class="bubble">${bubbleText(c)}</div></div>`;
+  if (!viewDay && p.created < realToday()) out += `<button class="link" data-act="ieri">📅 Devo segnare ieri</button>`;
   if (newVer) out += `<div class="banner small"><b>🆕 Nuova versione ${esc(newVer.v)}</b>${newVer.nota ? `: ${esc(newVer.nota)}` : ''}<div class="small">Hai la ${VERSION}. Tocca Aggiorna: la partita resta tutta.</div><div class="btns"><button class="btn" data-act="reload">🔄 Aggiorna adesso</button></div></div>`;
   if (isIOS() && !isStandalone() && !S.ui.noInstall) out += `<div class="banner small"><b>📲 Mettila nella schermata Home</b> per usarla come un'app vera. L'app sulla Home parte vuota: prima copia la partita da Io → Salva partita.<div class="btns"><button class="btn" data-act="install">Come si fa</button><button class="btn ghost" data-act="noinstall">Dopo</button></div></div>`;
   if (!S.ui.remindDone && c.total > 0) out += `<div class="banner small"><b>⏰ Il promemoria non è ancora attivo.</b> Bastano 30 secondi.<div class="btns"><button class="btn" data-act="remind">Attivalo</button><button class="btn ghost" data-act="noremind">No grazie</button></div></div>`;
@@ -1011,7 +1016,7 @@ function viewHome(c){
   }
 
   // baule
-  if (c.doneToday && !c.chestToday) out += `<div class="card chest-card"><div class="row"><div class="ce shake">🎁</div><div class="grow"><b>Baule del giorno!</b><div class="small muted">Dentro ci sono gemme. Quante? Sorpresa.</div></div></div><button class="btn gold" data-act="chest">Apri il baule</button></div>`;
+  if (c.doneToday && !c.chestToday && !viewDay) out += `<div class="card chest-card"><div class="row"><div class="ce shake">🎁</div><div class="grow"><b>Baule del giorno!</b><div class="small muted">Dentro ci sono gemme. Quante? Sorpresa.</div></div></div><button class="btn gold" data-act="chest">Apri il baule</button></div>`;
 
   // fiamma
   const fcls = c.doneToday ? '' : c.dead || c.total === 0 ? 'off' : c.brace ? 'ember' : 'wait';
@@ -1099,7 +1104,7 @@ function hrow(h, c, big){
     <div class="xtop"><span class="xe">${h.e}</span><span class="grow"><b>${esc(h.n)}</b><small>mini ${esc(hUnit(h.mini, h))}${h.epic ? ` · epica ${fmtN(h.epic)}` : ''}${tag}</small></span><span class="xk">${epic ? '⭐' : done ? '✓' : `${pr.pct}%`}</span></div>
     <div class="hbar"><i style="width:${w}%"></i>${mk < 100 ? `<s style="left:${mk}%"></s>` : ''}</div>
     <div class="hmeta small muted"><span><b>${fmtN(v)}</b> / ${esc(hUnit(pr.target, h))}${pr.stage === 'mini' ? '' : pr.stage === 'epica' ? ' (epica)' : ''}</span><button class="link inl" data-act="hnum" data-id="${h.id}">scrivi il totale</button>${v ? `<button class="link inl" data-act="hplus" data-id="${h.id}" data-d="-1">−${fmtN(h.step || 1)}</button>` : ''}</div>
-    ${tm ? `<div class="htimer" id="tmr-${h.id}"><b>⏱️ ${timerLeft(tm)}</b><span class="small muted">su ${tm.min} min</span><button class="btn ghost" data-act="tstop" data-id="${h.id}">Fermo e segno</button></div>` : `<div class="chips hchunks">${chunks}${isTimerH(h) ? `<button class="chip sm gold" data-act="timer" data-id="${h.id}">⏱️ Timer</button>` : ''}</div>`}
+    ${tm ? `<div class="htimer" id="tmr-${h.id}"><b>⏱️ ${timerLeft(tm)}</b><span class="small muted">su ${tm.min} min</span><button class="btn ghost" data-act="tstop" data-id="${h.id}">Fermo e segno</button></div>` : `<div class="chips hchunks">${chunks}${isTimerH(h) && !viewDay ? `<button class="chip sm gold" data-act="timer" data-id="${h.id}">⏱️ Timer</button>` : ''}</div>`}
     ${big ? `<div class="hsay small">💬 ${hSay(h, v, today())}</div>` : ''}</div>`;
 }
 function hUpReady(c, h){
@@ -1163,7 +1168,7 @@ function hApply(h, v, el){
   const a = calc();
   const b = mutate(() => hSet(h.id, v));
   const was = hDone(h, a.hvToday.get(h.id)?.v), now = hDone(h, v);
-  if (now && !was) { tone(SND.tap); if (el) floatXP(h.role === 'extra' ? `+${EXTRA_GEM} 💎` : '✓', el.getBoundingClientRect()); }
+  if (now && !was) { tone(SND.tap); if (el?.getBoundingClientRect) floatXP(h.role === 'extra' ? `+${EXTRA_GEM} 💎` : '✓', el.getBoundingClientRect()); }
   else if (!(a.hvToday.get(h.id)?.v) && v > 0 && !now) { tone(SND.tap); toast('🚀 Partito! Il più difficile era iniziare.'); }
   if (!a.doneToday && b.doneToday) { tone(SND.done); confetti(140, ['🔥']); toast(`🔥 Tutte le quest fatte: fiamma accesa! ${xDays(b.chain)}`); if (b.chain >= 2 && MILESTONES.includes(b.chain)) toast(`🔥 ${b.chain} giorni di fiamma!`); }
   else if (a.doneToday && !b.doneToday) toast('Fiamma di oggi in attesa: manca una quest.');
@@ -1186,13 +1191,13 @@ function timerModal(h){
   <button class="btn ghost" data-act="close">Annulla</button></div>`);
 }
 function timerCheck(){
-  const tm = S.ui.timer; if (!tm) return;
+  const tm = S?.ui?.timer; if (!tm) return;
   const h = hById(tm.id); if (!h) { delete S.ui.timer; save(); return; }
   if (Date.now() >= tm.start + tm.min * 60e3) { timerFinish(h, tm.min); return; }
   const el = $('#tmr-' + tm.id + ' b'); if (el) el.textContent = '⏱️ ' + timerLeft(tm);
 }
 function timerFinish(h, min){
-  delete S.ui.timer; save();
+  delete S.ui.timer; save(); viewDay = null;   // il timer è sempre di oggi
   const v = calc().hvToday.get(h.id)?.v || 0, nv = Math.round((v + min) * 100) / 100, pr = hProg(h, nv);
   hApply(h, nv, null); tone(SND.level); confetti(120, ['⏱️','✨']);
   showModal(`<div class="mc"><div class="big-emoji pop">⏱️</div><h2>+${min} minuti segnati</h2><p>${h.e} <b>${esc(h.n)}</b>: ${fmtN(nv)} ${esc(h.unit || '')} oggi${pr.stage === 'mini' ? ` · ${pr.pct} % della mini` : pr.stage === 'epica' ? ' · mini fatta, verso l\'epica' : ' · fatta!'}.</p><p class="small muted">${hSay(h, nv, today())}</p>
@@ -1646,6 +1651,8 @@ const ACT = {
   },
   chest: openChest,
   suggest: suggestModal,
+  ieri: () => { viewDay = addD(realToday(), -1); S.ui.tab = 'home'; save(); render(); scrollTo(0, 0); tone(SND.tap); },
+  oggi: () => { viewDay = null; render(); scrollTo(0, 0); tone(SND.tap); },
   htoggle: el => { const h = hById(el.dataset.id); if (!h || h.type !== 'bin') return; const v = calc().hvToday.get(h.id)?.v || 0; hApply(h, v >= 1 ? 0 : 1, el); },
   hplus: el => { const h = hById(el.dataset.id); if (!h || h.type !== 'num') return; const v = calc().hvToday.get(h.id)?.v || 0; hApply(h, Math.max(0, v + (+el.dataset.d) * (h.step || 1)), el); },
   hnum: el => { const h = hById(el.dataset.id); if (!h) return; showModal(`<div class="mc"><h2>${h.e} ${esc(h.n)}</h2><p class="small muted">Totale di oggi, in ${esc(h.unit || 'volte')}.</p><input class="txt" id="hnv" inputmode="decimal" value="${fmtN(calc().hvToday.get(h.id)?.v || 0)}" autocomplete="off" aria-label="Numero"><button class="btn ok" data-act="hnumset" data-id="${h.id}">Segna</button><button class="btn ghost" data-act="close">Annulla</button></div>`); },
@@ -2143,6 +2150,7 @@ let hiddenAt = 0;
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { hiddenAt = Date.now(); return; }
   if (hiddenAt && Date.now() - hiddenAt > 30 * 60e3 && !W && !mOpen && !document.activeElement?.matches('textarea, input')) { location.reload(); return; }
+  if (viewDay && hiddenAt && Date.now() - hiddenAt > 10 * 60e3) viewDay = null;
   checkDay(); checkVersion(); timerCheck();
   navigator.serviceWorker?.getRegistration?.().then(g => g && g.update()).catch(() => {});
   if (AC) AC.suspend().then(() => AC.resume()).catch(() => { try { AC.close(); } catch(e) {} AC = null; });
