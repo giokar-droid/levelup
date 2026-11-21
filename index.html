@@ -243,6 +243,9 @@ ol{padding-left:1.3em; margin:.4em 0} ol li{margin:.25em 0; line-height:1.35}
 #tabs button span{font-size:1.45rem; line-height:1.2}
 #tabs button.on{color:#fff; background:var(--card)}
 #tabs .dot{position:absolute; top:2px; right:8px; width:10px; height:10px; border-radius:50%; background:var(--bad)}
+/* sei schede (con Studio): si dividono la riga in parti uguali, così a 320 px non vanno a capo e non si tagliano */
+#tabs .in.six button{flex:1 1 0; min-width:0; padding:4px 1px; white-space:nowrap; overflow:hidden}
+#tabs .in.six .dot{right:calc(50% - 20px)}
 #modal{position:fixed; inset:0; z-index:50; background:rgba(5,3,20,.78); display:grid; place-items:center; padding:16px}
 #modal[hidden]{display:none}
 .mc{width:100%; max-width:430px; background:var(--card); border:2px solid var(--line); border-radius:24px; padding:22px 18px; text-align:center; max-height:86dvh; overflow:auto; animation:pop .42s cubic-bezier(.2,1.4,.4,1) both; outline:none}
@@ -274,12 +277,48 @@ ol{padding-left:1.3em; margin:.4em 0} ol li{margin:.25em 0; line-height:1.35}
 <div id="modal" hidden role="dialog" aria-modal="true"></div>
 <div id="toasts" aria-live="polite"></div>
 <canvas id="fx" aria-hidden="true"></canvas>
+<!-- ?v= è la versione (const VERSION): la tiene allineata pubblica.py; sw.js serve questi tre file dalla cache solo all'indirizzo esatto -->
+<script src="studio-engine.js?v=3.1"></script>
+<script src="studio-data.js?v=3.1"></script>
+<script src="studio-ui.js?v=3.1"></script>
+<script src="percorso-data.js?v=3.1"></script>
+<script src="percorso-ui.js?v=3.1"></script>
 <script>
 'use strict';
-const VERSION = '2.2';
+const VERSION = '3.1';
 const KEY = 'levelup.v1';
 const P = new URLSearchParams(location.search);
 const DEV = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
+
+/* ---------- Studio (3.0): tre file a parte (studio-engine.js, studio-data.js, studio-ui.js) ----------
+   Se uno non si carica l'app resta quella di prima: niente scheda, nessun errore, S.st non si tocca.
+   Sono funzioni (non const) perché norm() gira prima che il resto dello script sia stato letto. */
+function stEngine(){ return typeof STUDIO_ENGINE !== 'undefined' && STUDIO_ENGINE && typeof STUDIO_ENGINE.clean === 'function' && typeof STUDIO_ENGINE.defaults === 'function' ? STUDIO_ENGINE : null; }
+function stData(){ return typeof STUDIO_DATA !== 'undefined' && STUDIO_DATA && typeof STUDIO_DATA === 'object' ? STUDIO_DATA : null; }
+function stUi(){ return typeof STUDIO !== 'undefined' && STUDIO && typeof STUDIO.view === 'function' && stEngine() && stData() ? STUDIO : null; }
+function stPlain(x){ return !!x && typeof x === 'object' && !Array.isArray(x); }
+let stHooked = 0;   // quante azioni «st-…» sono entrate in ACT: a zero la scheda Studio non compare (pulsanti che non rispondono: mai)
+function stClean(st){ const en = stEngine(); if (en) { try { const r = en.clean(st); if (stPlain(r)) return r; } catch(e) {} } return stPlain(st) ? st : undefined; }
+function stOn(){ const u = stUi(); if (!u || !stHooked || typeof u.on !== 'function') return false; try { return !!u.on(); } catch(e) { return false; } }
+function stHtml(name, c){ const u = stUi(); if (!u || !stHooked || typeof u[name] !== 'function') return ''; try { const h = u[name](c); return typeof h === 'string' ? h : ''; } catch(e) { try { console.error('Studio.' + name, e); } catch(_) {} return ''; } }
+function stTick(){ const u = stUi(); if (!u || typeof u.tick !== 'function' || !S?.profile) return; try { u.tick(); } catch(e) {} }
+function stRewards(T){
+  const en = stEngine(); if (!en || typeof en.rewards !== 'function' || !stPlain(S.st)) return null;
+  try { const r = en.rewards(S.st, T); return stPlain(r) ? r : null; } catch(e) { try { console.error('Studio.rewards', e); } catch(_) {} return null; }
+}
+
+/* ---------- Percorso 30 (3.1): due file a parte (percorso-data.js, percorso-ui.js), solo profilo Adulto ----------
+   Stesse regole di Studio: se un file non si carica l'app resta quella di prima e S.pc non si tocca. */
+function pcUi(){ return typeof PERCORSO !== 'undefined' && PERCORSO && typeof PERCORSO.view === 'function' && PERCORSO.engine && typeof PERCORSO.engine.clean === 'function' && typeof PERCORSO_DATA !== 'undefined' && PERCORSO_DATA && Array.isArray(PERCORSO_DATA.DAYS) ? PERCORSO : null; }
+let pcHooked = 0;   // quante azioni «pc-…» sono entrate in ACT: a zero la scheda non compare
+function pcClean(pc){ const u = pcUi(); if (u) { try { const r = u.engine.clean(pc); if (stPlain(r)) return r; } catch(e) {} } return stPlain(pc) ? pc : undefined; }
+function pcOn(){ const u = pcUi(); if (!u || !pcHooked || typeof u.on !== 'function') return false; try { return !!u.on(); } catch(e) { return false; } }
+function pcHtml(name, c){ const u = pcUi(); if (!u || !pcHooked || typeof u[name] !== 'function') return ''; try { const h = u[name](c); return typeof h === 'string' ? h : ''; } catch(e) { try { console.error('Percorso.' + name, e); } catch(_) {} return ''; } }
+function pcRewards(T){
+  const u = pcUi(); if (!u || !stPlain(S.pc)) return null;
+  try { const r = u.engine.rewards(S.pc, T); return stPlain(r) ? r : null; } catch(e) { try { console.error('Percorso.rewards', e); } catch(_) {} return null; }
+}
+function pcBusy(){ const u = pcUi(); try { return !!(u && typeof u.busy === 'function' && u.busy()); } catch(e) { return false; } }
 
 /* ---------- date ---------- */
 let viewDay = null;   // 'AAAA-MM-GG' mentre si segna ieri: tutta l'app lavora su quel giorno; non si salva
@@ -445,6 +484,26 @@ const BADGES = [
   {id:'rd10',e:'⭐', n:'Doppio turno', d:'10 giorni con almeno il doppio del piano di lettura.', g:50, ok:s=>s.rDouble>=10},
   {id:'rl4', e:'🪜', n:'Quarto piano', d:'Piano di lettura 4 raggiunto: 8 pagine o 15 minuti al giorno.', g:60, ok:s=>s.rMaxLv>=4},
 ];
+// trofei di Studio (id «st…»): in coda, solo se ci sono tutti e tre i file (con uno mancante i Trofei sono quelli della 2.2); un trofeo scritto male si salta, e la sua regola non può rompere calc()
+try {
+  const sb = stUi() ? stData().BADGES : null;
+  if (Array.isArray(sb)) for (const x of sb.slice(0, 40)) {
+    if (!x || typeof x.id !== 'string' || !/^st[A-Za-z0-9_-]{1,27}$/.test(x.id) || typeof x.ok !== 'function' || BADGES.some(b => b.id === x.id)) continue;
+    const g = Math.max(0, Math.min(500, Math.round(+x.g) || 0)), rule = x.ok;
+    BADGES.push({id:x.id, e:String(x.e || '📚'), n:String(x.n || 'Studio'), d:String(x.d || ''), g, ok:s => { try { return !!rule(s); } catch(e) { return false; } }});
+  }
+} catch(e) {}
+// trofei del Percorso (id «pc…»): stesse regole di quelli di Studio
+try {
+  const pb = pcUi() ? PERCORSO_DATA.BADGES : null;
+  if (Array.isArray(pb)) for (const x of pb.slice(0, 20)) {
+    if (!x || typeof x.id !== 'string' || !/^pc[A-Za-z0-9_-]{1,27}$/.test(x.id) || typeof x.ok !== 'function' || BADGES.some(b => b.id === x.id)) continue;
+    const g = Math.max(0, Math.min(500, Math.round(+x.g) || 0)), rule = x.ok;
+    BADGES.push({id:x.id, e:String(x.e || '🧭'), n:String(x.n || 'Percorso'), d:String(x.d || ''), g, ok:s => { try { return !!rule(s); } catch(e) { return false; } }});
+  }
+} catch(e) {}
+// i trofei del Percorso si vedono solo nel profilo Adulto (Massimo non ha la scheda: niente trofei irraggiungibili)
+function badgeList(){ return BADGES.filter(x => !x.id.startsWith('pc') || isAdult()); }
 const MILESTONES = [3,7,14,21,30,50,66,100,150,200,365];
 
 const CARDS = [
@@ -546,6 +605,16 @@ const CATALOG = [
   {id:'plank',     e:'🧘', n:'Plank e core',             role:'extra', type:'bin', slot:'any'},
   {id:'integ_pm',  e:'💊', n:'Integratori sera',         role:'extra', type:'bin', slot:'eve'},
 ];
+// le abitudini proposte dal Percorso (id «pc_…») entrano anche nel catalogo di «Aggiungi un'abitudine»
+try {
+  const ph = pcUi() ? PERCORSO_DATA.HABITS : null;
+  if (Array.isArray(ph)) for (const h of ph.slice(0, 20)) {
+    if (!h || !/^pc_[a-z0-9_]{1,21}$/.test(h.id || '') || CATALOG.some(x => x.id === h.id)) continue;
+    const o = {id:h.id, e:String(h.e || '⭐').slice(0, 8), n:String(h.n || h.id).slice(0, 40), role:['core','goal','extra'].includes(h.role) ? h.role : 'extra', type:h.type === 'num' ? 'num' : 'bin', slot:['am','pm','eve','any'].includes(h.slot) ? h.slot : 'any'};
+    if (o.type === 'num') Object.assign(o, {unit:h.unit || 'volte', one:h.one, mini:+h.mini || 1, epic:+h.epic || 0, step:+h.step || 1});
+    CATALOG.push(o);
+  }
+} catch(e) {}
 const CORE_MAX = 4, GOAL_MAX = 5, HABITS_MAX = 30, X_RATIO = 0.6, GOAL_XP = 5, GOAL_GEM = 3, GOAL_EPIC_GEM = 6, GOAL_FULL_GEM = 10, GOAL_WEEK_GEM = 25;
 const ROLES = {core:'atomica', goal:'traguardo', extra:'extra'};
 const SLOTS = {am:'mattina', pm:'pomeriggio', eve:'sera', any:'quando vuoi'};
@@ -610,14 +679,23 @@ function norm(){
   S.v = 1; S.profile ||= null; S.ev ||= []; S.eq ||= {}; S.set ||= {sound:true}; S.ui ||= {}; S.ui.tab ||= 'home'; S.ui.seen ||= 0;
   if (S.profile && typeof cleanState === 'function') {
     // anche i dati già salvati passano dalla stessa pulizia dell'import; i flag locali dell'interfaccia restano
-    try { const ui = S.ui; S = cleanState(S); for (const k of ['noInstall','safariOk','goldiNo','readNo','hNo','timer','tab']) if (ui[k] !== undefined) S.ui[k] = ui[k]; } catch(e) {}
+    try { const ui = S.ui; S = cleanState(S); for (const k of ['noInstall','safariOk','goldiNo','readNo','hNo','timer','tab','stTimer','stOn']) if (ui[k] !== undefined) S.ui[k] = ui[k]; } catch(e) {}
   }
+  // Studio: lo stato nasce dal suo motore; se il motore non c'è, S.st resta com'è (anche assente)
+  if (!stPlain(S.st)) { try { const en = stEngine(); if (en) { const d = en.defaults(); if (stPlain(d)) S.st = d; } } catch(e) {} }
+  // Percorso: idem, dal suo motore
+  if (!stPlain(S.pc)) { try { const u = pcUi(); if (u) { const d = u.engine.defaults(); if (stPlain(d)) S.pc = d; } } catch(e) {} }
   const h = S.profile?.habit;
   if (h) { if (h.emoji === '\u{1FAA2}') h.emoji = '🦘'; if (!h.one && HABITS[h.key]) h.one = HABITS[h.key].one; }
   for (const k of ['hat','aura','theme']) if (S.eq[k] && !shopItem(S.eq[k], k)) delete S.eq[k];
 }
 norm();
-function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e) { toast('⚠️ Non riesco a salvare su questo dispositivo.'); } }
+// restituisce true se la partita è sul dispositivo; l'avviso esce al massimo una volta ogni 10 secondi (non tre toast uguali impilati)
+let saveWarn = 0;
+function save(){
+  try { localStorage.setItem(KEY, JSON.stringify(S)); saveWarn = 0; return true; }
+  catch(e) { if (Date.now() - saveWarn > 10000) { saveWarn = Date.now(); toast('⚠️ Non riesco a salvare su questo dispositivo.'); } return false; }
+}
 async function keepData(){ try { if (navigator.storage?.persist && !(await navigator.storage.persisted())) await navigator.storage.persist(); } catch(e) {} }
 
 /* ---------- motore del gioco ---------- */
@@ -682,7 +760,11 @@ function calc(){
     }
   }
   for (const e of done.values()) if (e.ts) { const hh = new Date(e.ts).getHours(); if (hh >= 5 && hh < 9) early++; }
-  let xp = bonusXP + moodDays.size*5 + ansDays.size*5 + gXp;
+  // Studio: premi ricalcolati dal registro di studio; se il motore manca o sbaglia, sr = null e la partita è quella di sempre
+  const sr = stRewards(T), stNum = v => Number.isFinite(v) && v > 0 ? Math.floor(v) : 0, stFull = sr && typeof sr.fullOn?.has === 'function' ? sr.fullOn : null;
+  // Percorso: stessa idea, premi ricalcolati da S.pc (giorno chiuso con l'azione fatta = un colpo in più al boss)
+  const pr = pcRewards(T), pcFull = pr && typeof pr.fullOn?.has === 'function' ? pr.fullOn : null;
+  let xp = bonusXP + moodDays.size*5 + ansDays.size*5 + gXp + stNum(sr?.xp) + stNum(pr?.xp);
   let chain = 0, best = 0, gap = 0, earned = 0, bought = 0, shieldsUsed = 0, total = 0, epics = 0, comebacks = 0, broken = false, lastKillWs = null;
   let teamChain = 0, teamBest = 0;
   let xTotal = 0, xFull = 0, xChain = 0, xBest = 0, xGap = 0, xGems = 0;
@@ -720,7 +802,7 @@ function calc(){
       xp += (e.epic ? 25 : 10) + Math.min(10, Math.floor(chain/7));
       if (chain % 7 === 0 && earned < 2 && earned + bought < 3) earned++;
       if (chain > best) best = chain;
-      const ws = weekStart(d), prev = weekHits.get(ws) || 0, hit = prev + (e.epic ? 2 : 1) + (multi && xFullDay ? 1 : 0) + (multi && gDay.get(d)?.full ? 1 : 0);
+      const ws = weekStart(d), prev = weekHits.get(ws) || 0, hit = prev + (e.epic ? 2 : 1) + (multi && xFullDay ? 1 : 0) + (multi && gDay.get(d)?.full ? 1 : 0) + (stFull && stFull.has(d) ? 1 : 0) + (pcFull && pcFull.has(d) ? 1 : 0);
       weekHits.set(ws, hit);
       if (prev < BOSS_HP && hit >= BOSS_HP) { bossWeeks.add(ws); xp += 50; lastKillWs = ws; }
       if (team.has(d)) { teamChain++; xp += 5; teamBest = Math.max(teamBest, teamChain); } else if (d < T) teamChain = 0;
@@ -736,12 +818,14 @@ function calc(){
     }
   }
   const L = levelOf(xp);
-  const stats = {total, best, epics, comebacks, shieldsUsed, bosses:bossWeeks.size, moods:moodDays.size, teamBest, early, lv:L.lv, xTotal, xFull, xBest, rDays, rBest, rPages, rDouble, rMaxLv};
+  const stats = {total, best, epics, comebacks, shieldsUsed, bosses:bossWeeks.size, moods:moodDays.size, teamBest, early, lv:L.lv, xTotal, xFull, xBest, rDays, rBest, rPages, rDouble, rMaxLv,
+    stSessions:stNum(sr?.sessions), stMinutes:stNum(sr?.minutes), stExercises:stNum(sr?.exercises), stFullDays:stNum(sr?.fullDays), stBest:stNum(sr?.best), stBosses:stNum(sr?.bosses), stEarly:stNum(sr?.early), stComebacks:stNum(sr?.comebacks), stGrades:stNum(sr?.grades), stFives:stNum(sr?.fives),
+    pcDays:stNum(pr?.days), pcBest:stNum(pr?.best), pcCycles:stNum(pr?.cycles)};
   const badgesNow = BADGES.filter(x => x.ok(stats)).map(x => x.id);
   const bossNow = [...bossWeeks].map(w => 'boss:' + w);
   const badges = new Set([...badgesNow, ...[...awarded].filter(id => BADGES.some(b => b.id === id))]);
   const bossIds = new Set([...bossNow, ...[...awarded].filter(id => id.startsWith('boss:'))]);
-  const gems = chestG + BADGES.filter(x => badges.has(x.id)).reduce((a, x) => a + x.g, 0) + bossIds.size*40 + xGems + rGems + gGems - spent;
+  const gems = chestG + BADGES.filter(x => badges.has(x.id)).reduce((a, x) => a + x.g, 0) + bossIds.size*40 + xGems + rGems + gGems + stNum(sr?.gems) + stNum(pr?.gems) - spent;
   const doneToday = done.get(T) || null;
   const ws = weekStart(T);
   return {
@@ -762,6 +846,8 @@ function calc(){
     xN: multi ? (xNday.get(T) || 0) : EXTRA.length, xNeed: multi ? Math.max(1, Math.ceil((xNday.get(T) || 0) * X_RATIO)) : EXTRA_DAY,
     reads, rToday: reads.get(T) || {p:0, m:0, ok:false, mult:0}, rChain, rBest, rGap, rLv, rFloor: READ_FLOORS[rLv - 1], rDays, rPages, rMins, rDouble, rTriple, rMaxLv, rLvSince,
     rBrace: rChain > 0 && rGap === 1 && !reads.get(T)?.ok,
+    study: sr,
+    percorso: pr,
   };
 }
 
@@ -936,9 +1022,12 @@ function render(){
   const c = calc();
   persistAwards(c);
   const views = {home:viewHome, cards:viewCards, trophies:viewTrophies, shop:viewShop, me:viewMe};
+  const stu = stOn(), pcu = pcOn();
+  if (stu) views.studio = viewStudio; else if (S.ui.tab === 'studio') S.ui.tab = 'home';
+  if (pcu) views.percorso = viewPercorso; else if (S.ui.tab === 'percorso') S.ui.tab = 'home';
   app.innerHTML = (views[S.ui.tab] || viewHome)(c);
   if (S.ui.tab === 'cards' && S.ui.seen < c.cards) { S.ui.seen = c.cards; save(); }
-  renderTabs(c);
+  renderTabs(c, stu, pcu);
   const sh = [...c.shielded].sort().pop();
   if (sh && sh !== S.ui.shSeen) {
     S.ui.shSeen = sh; save();
@@ -953,9 +1042,22 @@ function persistAwards(c){
   c.pending.map(id => BADGES.find(b => b.id === id)).filter(Boolean)
     .forEach(x => toast(`${x.e} Trofeo: ${x.n} · +${x.g} 💎`, () => { S.ui.tab = 'trophies'; save(); render(); scrollTo(0, 0); }));
 }
-function renderTabs(c){
+// la scheda Studio: se la vista sbaglia, resta in piedi tutto il resto (e la partita)
+function viewStudio(c){
+  try { const h = stUi().view(c); if (typeof h === 'string' && h) return h; } catch(e) { try { console.error('Studio.view', e); } catch(_) {} }
+  return `${topbar(c)}<h2>📚 Studio</h2><div class="card"><b>⚠️ Qui qualcosa non va.</b><p class="small muted">Lo Studio non riesce ad aprirsi. Il resto dell'app funziona e la partita è al sicuro: prova ad aggiornare, e se continua scrivilo da Io → Suggerisci.</p><button class="btn" data-act="reload">🔄 Aggiorna</button></div>`;
+}
+// la scheda Percorso: se la vista sbaglia, resta in piedi tutto il resto (e la partita)
+function viewPercorso(c){
+  try { const h = pcUi().view(c); if (typeof h === 'string' && h) return h; } catch(e) { try { console.error('Percorso.view', e); } catch(_) {} }
+  return `${topbar(c)}<h2>🧭 Percorso</h2><div class="card"><b>⚠️ Qui qualcosa non va.</b><p class="small muted">Il percorso non riesce ad aprirsi. Il resto dell'app funziona e la partita è al sicuro: prova ad aggiornare.</p><button class="btn" data-act="reload">🔄 Aggiorna</button></div>`;
+}
+function renderTabs(c, stu, pcu){
   const t = $('#tabs'); t.hidden = false;
   const items = [['home','🏠','Quest'],['cards','🃏','Carte'],['trophies','🏆','Trofei'],['shop','💎','Shop'],['me','👤','Io']];
+  if (stu) items.splice(1, 0, ['studio','📚','Studio']);
+  if (pcu) items.splice(1, 0, ['percorso','🧭','Percorso']);
+  t.firstElementChild.classList.toggle('six', items.length > 5);
   t.firstElementChild.innerHTML = items.map(([k,e,l]) => `<button class="${S.ui.tab===k?'on':''}" data-act="tab" data-v="${k}" aria-label="${l}"><span aria-hidden="true">${e}</span>${l}${k==='cards' && c.cards > S.ui.seen ? '<i class="dot"></i>' : ''}</button>`).join('');
 }
 function topbar(c){
@@ -994,6 +1096,9 @@ function viewHome(c){
   out += `<div class="buddy-zone">${buddyHTML(c)}<div class="bname">${esc(p.buddyName)} · ${buddyStageName(c.stage)}${c.gifts ? ` · ❤️ ${c.gifts} ${c.gifts === 1 ? 'regalo' : 'regali'}` : ''}</div><div class="bubble">${bubbleText(c)}</div></div>`;
   if (!viewDay && p.created < realToday()) out += `<button class="link" data-act="ieri">📅 Devo segnare ieri</button>`;
   if (newVer) out += `<div class="banner small"><b>🆕 Nuova versione ${esc(newVer.v)}</b>${newVer.nota ? `: ${esc(newVer.nota)}` : ''}<div class="small">Hai la ${VERSION}. Tocca Aggiorna: la partita resta tutta.</div><div class="btns"><button class="btn" data-act="reload">🔄 Aggiorna adesso</button></div></div>`;
+  // Studio non caricato (un file non è arrivato, o le azioni non si sono agganciate): la partita è quella di sempre, ma lo si dice
+  else if (location.protocol.startsWith('http') && (!stUi() || !stHooked)) out += `<div class="banner small" id="st-missing">📚 Lo Studio non si è caricato: tocca Aggiorna.<div class="btns"><button class="btn" data-act="reload">🔄 Aggiorna</button></div></div>`;
+  else if (location.protocol.startsWith('http') && isAdult() && (!pcUi() || !pcHooked)) out += `<div class="banner small" id="pc-missing">🧭 Il Percorso non si è caricato: tocca Aggiorna.<div class="btns"><button class="btn" data-act="reload">🔄 Aggiorna</button></div></div>`;
   if (isIOS() && !isStandalone() && !S.ui.noInstall) out += `<div class="banner small"><b>📲 Mettila nella schermata Home</b> per usarla come un'app vera. L'app sulla Home parte vuota: prima copia la partita da Io → Salva partita.<div class="btns"><button class="btn" data-act="install">Come si fa</button><button class="btn ghost" data-act="noinstall">Dopo</button></div></div>`;
   if (!S.ui.remindDone && c.total > 0) out += `<div class="banner small"><b>⏰ Il promemoria non è ancora attivo.</b> Bastano 30 secondi.<div class="btns"><button class="btn" data-act="remind">Attivalo</button><button class="btn ghost" data-act="noremind">No grazie</button></div></div>`;
   else if (S.ui.remindDone === 1 && S.ui.remindAt && S.ui.remindAt !== p.remind) out += `<div class="banner small"><b>⏰ Hai cambiato l'ora:</b> aggiorna il promemoria (togli quello delle ${esc(S.ui.remindAt)} e metti quello delle ${esc(p.remind)}).<div class="btns"><button class="btn" data-act="remind">Aggiorna</button></div></div>`;
@@ -1018,6 +1123,9 @@ function viewHome(c){
   // baule
   if (c.doneToday && !c.chestToday && !viewDay) out += `<div class="card chest-card"><div class="row"><div class="ce shake">🎁</div><div class="grow"><b>Baule del giorno!</b><div class="small muted">Dentro ci sono gemme. Quante? Sorpresa.</div></div></div><button class="btn gold" data-act="chest">Apri il baule</button></div>`;
 
+  // percorso: carta «Percorso oggi» (solo profilo Adulto con la scheda accesa)
+  out += pcHtml('homeCard', c);
+
   // fiamma
   const fcls = c.doneToday ? '' : c.dead || c.total === 0 ? 'off' : c.brace ? 'ember' : 'wait';
   let st, warn = false;
@@ -1040,6 +1148,9 @@ function viewHome(c){
   out += `<div class="card"><div class="row"><div class="flame ${fcls}">🔥</div><div class="grow"><div class="snum">${c.chain}</div><div class="small muted">${c.chain===1?'giorno':'giorni'} di fiamma · record ${c.best}</div></div><div class="center"><div style="font-size:1.8rem">🛡️</div><b>×${c.shields}</b></div></div>
     <div class="state ${warn?'warn':''}">${st}</div><div class="week">${wk}</div>
     ${next ? `<div class="small dim" style="margin-top:8px">Prossimo traguardo: <b>${next} giorni di fiamma</b> (${next - c.chain === 1 ? 'ne manca 1' : `ne mancano ${next - c.chain}`})</div>` : ''}</div>`;
+
+  // studio: carta piccola «Studio oggi» (vuota se non c'è niente da dire o se Studio non è caricato)
+  out += stHtml('homeCard', c);
 
   // traguardi, extra e lettura
   if (c.multi) out += goalCard(c);
@@ -1204,6 +1315,7 @@ function timerFinish(h, min){
   <button class="btn gold" data-act="tstart" data-id="${h.id}" data-m="${min}">▶ Ancora ${min} min</button><button class="btn ghost" data-act="close">Basta così</button></div>`);
 }
 setInterval(timerCheck, 1000);
+setInterval(stTick, 1000);   // timer di Studio: lo gestisce STUDIO.tick(), se c'è
 function habitsModal(){
   const c = calc(), rows = sortH(c.H).map(h => { const paused = c.pausedNow.has(h.id), s = c.hstats.get(h.id) || {chain:0, best:0};
     return `<div class="hitem"><div class="row"><div class="se">${h.e}</div><div class="grow"><b>${esc(h.n)}</b> <span class="stag ${h.role === 'core' ? 'on' : ''}">${ROLES[h.role] || h.role}</span>${paused ? ' <span class="stag">in pausa</span>' : ''}<div class="small muted">${h.type === 'bin' ? 'fatto / non fatto' : `mini ${esc(hUnit(h.mini, h))}${h.epic ? ` · epica ${fmtN(h.epic)}` : ''} · passo ${fmtN(h.step)}`} · ${SLOTS[h.slot]} · serie ${s.chain}, record ${s.best}</div></div></div><div class="hbtns"><button class="btn ghost" data-act="hedit" data-id="${h.id}">✏️ Modifica</button><button class="btn ghost" data-act="hpause" data-id="${h.id}">${paused ? '▶️ Riprendi' : '⏸️ Pausa'}</button></div></div>`; }).join('');
@@ -1303,7 +1415,7 @@ function viewTrophies(c){
     const cls = d > T ? 'future' : e ? (e.epic ? 'epic' : 'done') : c.shielded.has(d) ? 'shield' : (d < T && d >= c.start) ? 'miss' : '';
     cells += `<i class="${cls} ${d===T?'today':''}" title="${fmtDate(d)}"></i>`;
   }
-  const b = BADGES.map(x => `<button class="badge ${c.badges.has(x.id)?'':'locked'}" data-act="badge" data-v="${x.id}"><span class="be">${x.e}</span>${x.n}</button>`).join('');
+  const b = badgeList().map(x => `<button class="badge ${c.badges.has(x.id)?'':'locked'}" data-act="badge" data-v="${x.id}"><span class="be">${x.e}</span>${x.n}</button>`).join('');
   let xc = '';
   for (let i = 0; i < 84; i++) {
     const d = addD(start, i), k = c.extras.get(d)?.size || 0;
@@ -1324,7 +1436,7 @@ function viewTrophies(c){
     if (e) rl += `<div class="diary small"><span class="dim">${fmtDate(d)}</span> · ${readTxt(e)} ${e.ok ? (e.mult >= 3 ? '🌟' : e.mult >= 2 ? '⭐' : '✓') : '<span class="dim">sotto il piano</span>'}</div>`;
   }
   return `${topbar(c)}<h2>🏆 Trofei</h2>
-  <div class="stats"><div class="stat"><b>${c.best}</b><span>RECORD</span></div><div class="stat"><b>${c.total}</b><span>QUEST</span></div><div class="stat"><b>${c.epics}</b><span>EPICHE</span></div><div class="stat"><b>${c.bosses}</b><span>BOSS</span></div><div class="stat"><b>${c.shieldsUsed}</b><span>SCUDI USATI</span></div><div class="stat"><b>${c.badges.size}/${BADGES.length}</b><span>TROFEI</span></div></div>
+  <div class="stats"><div class="stat"><b>${c.best}</b><span>RECORD</span></div><div class="stat"><b>${c.total}</b><span>QUEST</span></div><div class="stat"><b>${c.epics}</b><span>EPICHE</span></div><div class="stat"><b>${c.bosses}</b><span>BOSS</span></div><div class="stat"><b>${c.shieldsUsed}</b><span>SCUDI USATI</span></div><div class="stat"><b>${c.badges.size}/${badgeList().length}</b><span>TROFEI</span></div></div>
   <div class="card"><b>⛓️ La catena · ultime 12 settimane</b><div class="heat">${cells}</div>
   <div class="legend"><span><i style="background:var(--fire)"></i>fatta</span><span><i style="background:var(--gold)"></i>epica</span><span><i style="background:var(--blue)"></i>scudo</span><span><i class="miss"></i>saltata</span></div></div>
   <div class="card"><b>⚡ Extra · ultime 12 settimane</b>
@@ -1380,7 +1492,7 @@ function viewMe(c){
    <button class="btn ghost" data-act="install">📲 Installa l'app</button>
    <button class="btn ghost" data-act="sound">${S.set.sound ? '🔊 Suoni attivi' : '🔇 Suoni spenti'}</button>
    <button class="btn ghost" data-act="rewizard">🔁 Rifai il patto</button>
-  </div>
+  </div>${pcHtml('meCard', c)}${stHtml('meCard', c)}
   ${sugg.length ? `<div class="card"><details><summary>💡 Le mie richieste (${sugg.length})</summary>${sugg.map(e => `<div class="diary small"><span class="dim">${fmtDate(e.d)}</span> · ${suggKindOf(e.k)[1]} ${esc(e.a)}</div>`).join('')}</details></div>` : ''}
   <div class="card"><details><summary>📓 Diario (tocca per aprire)</summary>
    <div class="small dim">Non va su internet: resta su questo dispositivo.</div>${dia || '<p class="muted small">Ancora vuoto: fai il check-in con il buddy.</p>'}
@@ -1463,7 +1575,7 @@ function helpModal(){
   ${isMulti() ? `<p><b>🗂️ Più abitudini:</b> le <b>atomiche</b> (max ${CORE_MAX}) sono la fiamma: piccole, subito, tutte fatte e la giornata è accesa; tutte in epica = 2 colpi al boss. I <b>traguardi</b> (max ${GOAL_MAX}) sono della giornata intera: ognuno alla mini +${GOAL_XP} XP e +${GOAL_GEM} 💎, tutti alla mini +${GOAL_FULL_GEM} 💎 e un colpo al boss, con la loro serie. Le <b>extra</b> danno gemme e hanno la serie extra (conta con il 60 % fatte; tutte = +${EXTRA_FULL_GEM} 💎 e un colpo in più al boss). Ogni abitudine ha la sua serie in Trofei. Da Io → Le mie abitudini aggiungi, modifichi, metti in pausa.</p><p><b>⏱️ A chunk:</b> le quest a numero sono traguardi della giornata: la barra dice a che punto sei, i bottoni +5 +10 +15 +25 (o +500 passi) sommano i pezzi, il Timer fa partire un pomodoro e segna da solo. Il primo chunk è quello che conta: il resto viene.</p>` : ''}
   <p><b>💎 Shop:</b> cappelli e aure li indossa ${esc(P_().buddyName)}, i temi cambiano i colori dell'app. Uno per tipo, si cambiano con «Usa» e «Togli». Il regalo lo rende felice e basta: un ❤️ accanto al suo nome.</p>
   <p><b>📚 Lettura:</b> segni le pagine o i minuti, scegli tu. Raggiunto il piano (all'inizio 1 pagina o 5 minuti) la giornata conta per la <b>serie lettura</b>: +${READ_XP} XP e +${READ_GEM} 💎; doppio del piano +${READ_X2_GEM} 💎, triplo +${READ_X3_GEM} 💎; ogni 7 giorni +${READ_WEEK_GEM} 💎, ogni 30 +${READ_MONTH_GEM} 💎. Dopo 7 giorni di fila l'app ti propone di salire di piano: decidi tu, e puoi sempre scendere.</p>
-  <p><b>⚡ Extra:</b> 5 esercizi in più, quando vuoi: piegamenti di mattina, pomeriggio e sera, squat, e plank o addominali a giorni alterni. Ogni extra +${EXTRA_GEM} 💎 e +${EXTRA_XP} XP; tutti e 5 +${EXTRA_FULL_GEM} 💎. Con ${EXTRA_DAY} su 5 la giornata conta per la <b>serie extra</b>, che ha la sua catena e non tocca la fiamma: ogni 7 giorni di serie +${EXTRA_WEEK_GEM} 💎. Li ritrovi tutti in Trofei.</p>
+  <p><b>⚡ Extra:</b> 5 esercizi in più, quando vuoi: piegamenti di mattina, pomeriggio e sera, squat, e plank o addominali a giorni alterni. Ogni extra +${EXTRA_GEM} 💎 e +${EXTRA_XP} XP; tutti e 5 +${EXTRA_FULL_GEM} 💎. Con ${EXTRA_DAY} su 5 la giornata conta per la <b>serie extra</b>, che ha la sua catena e non tocca la fiamma: ogni 7 giorni di serie +${EXTRA_WEEK_GEM} 💎. Li ritrovi tutti in Trofei.</p>${stOn() ? stHtml('help') : ''}
   <button class="btn" data-act="close">Capito</button><button class="btn ghost" data-act="suggest">💡 Non trovi la risposta? Chiedi</button></div>`);
 }
 const INSTALL_STEPS = `<ol><li>Apri questa pagina con <b>Safari</b>.</li><li>Tocca <b>•••</b> in basso a destra, poi <b>Condividi</b>. (Se vedi già il quadrato con la freccia in su, tocca quello.)</li><li>Scorri e scegli <b>Aggiungi alla schermata Home</b>. Se c'è l'interruttore «Apri come app web», lascialo acceso, poi tocca <b>Aggiungi</b>.</li><li>Da ora aprila dall'icona 🔥 sulla Home.</li></ol>`;
@@ -1494,9 +1606,16 @@ function remindModal(){
 }
 function b64e(str){ const u = new TextEncoder().encode(str); let bin = ''; for (let i = 0; i < u.length; i += 0x8000) bin += String.fromCharCode(...u.subarray(i, i + 0x8000)); return btoa(bin); }
 function b64d(s){ const bin = atob(s.replace(/\s+/g, '')); return new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0))); }
+// «senza diario»: via le risposte, gli umori e, delle verifiche di Studio, la riga libera e il «come ti sentivi» (la nota resta: vale i suoi premi)
+function stNoDiary(o){ if (stPlain(o?.st) && Array.isArray(o.st.tests)) for (const t of o.st.tests) if (stPlain(t)) { t.note = ''; t.feel = null; } }
+// senza diario anche il percorso perde le risposte scritte (restano date, voti e «fatta / non fatta»); se il modulo non c'è si svuota a mano
+function pcNoDiary(o){
+  const u = pcUi(); if (u && typeof u.engine.noDiary === 'function') { try { u.engine.noDiary(o); return; } catch(e) {} }
+  if (stPlain(o?.pc)) { const w = ds => { if (stPlain(ds)) for (const x of Object.values(ds)) { if (stPlain(x?.am)) { x.am.a = {}; x.am.act = ''; } if (stPlain(x?.pm)) { x.pm.a = {}; x.pm.note = ''; } } }; w(o.pc.days); if (Array.isArray(o.pc.past)) o.pc.past.forEach(p => w(p?.days)); }
+}
 function exportState(noDiary){
   const o = JSON.parse(JSON.stringify(S));
-  if (noDiary) o.ev = o.ev.map(e => e.t === 'answer' && !e.skip ? {t:'answer', d:e.d, q:'', a:''} : e.t === 'mood' ? {t:'mood', d:e.d} : e);
+  if (noDiary) { o.ev = o.ev.map(e => e.t === 'answer' && !e.skip ? {t:'answer', d:e.d, q:'', a:''} : e.t === 'mood' ? {t:'mood', d:e.d} : e); stNoDiary(o); if (typeof pcNoDiary === 'function') pcNoDiary(o); }
   o.ui = {seen:S.ui.seen, awardInit:S.ui.awardInit, remindDone:S.ui.remindDone, remindAt:S.ui.remindAt, shSeen:S.ui.shSeen};
   return o;
 }
@@ -1551,6 +1670,10 @@ function cleanState(o){
   }).filter(Boolean);
   const eq = {}; for (const k of ['hat','aura','theme']) if (o.eq && shopItem(o.eq[k], k)) eq[k] = o.eq[k];
   o.eq = eq; o.set = {sound: o.set?.sound !== false};
+  // Studio: lo pulisce il suo motore; se il motore non è caricato resta com'è (mai perso), purché sia un oggetto
+  o.st = stClean(o.st); if (o.st === undefined) delete o.st;
+  // Percorso: idem, lo pulisce il suo motore; se manca resta com'è
+  o.pc = pcClean(o.pc); if (o.pc === undefined) delete o.pc;
   const u = o.ui || {};
   o.ui = {tab:'home', seen:int(u.seen, 0, CARDS.length), awardInit:u.awardInit ? 1 : 0, remindDone:u.remindDone === 'no' ? 'no' : u.remindDone ? 1 : 0,
           remindAt:TIMES.includes(u.remindAt) ? u.remindAt : undefined, shSeen:isDay(u.shSeen) ? u.shSeen : undefined};
@@ -1564,6 +1687,10 @@ function loadState(text){
   S = o; norm(); W = null;
   try {
     const c = calc(); viewHome(c); viewMe(c); viewTrophies(c); viewShop(c); pactHTML(S.profile);
+    // anche lo Studio prova la partita caricata; se sbaglia lo dice in console ma NON blocca il caricamento:
+    // S.st è già passato dalla pulizia del motore e viewStudio() regge da sola, mentre un rifiuto qui lascerebbe senza partita un dispositivo nuovo
+    { const u = stUi(); if (u) { try { u.view(c); } catch (e) { try { console.error('Studio.view (partita caricata)', e); } catch(_) {} } } }
+    { const u = pcUi(); if (u && isAdult()) { try { u.view(c); } catch (e) { try { console.error('Percorso.view (partita caricata)', e); } catch(_) {} } } }
     startWizard(S.profile); STEPS.forEach(s => s.html()); W = null;   // anche «Rifai il patto» deve reggere
     if (!S.ui.shSeen) { const sh = [...c.shielded].sort().pop(); if (sh) S.ui.shSeen = sh; }
   }
@@ -1575,7 +1702,7 @@ function saveModal(){
   showModal(`<div class="mc left"><h2>💾 Salva partita</h2>
   <p class="small muted">Per giocare su un altro dispositivo (PC ↔ iPhone): copia il codice, mandalo <b>a te stesso</b> (AirDrop, una mail a te, «Messaggi a te stesso») e di là incollalo in «Ho già una partita» o in «Carica partita».</p>
   <p class="small"><b>Attenzione:</b> il codice contiene tutta la partita: nome, patto con la firma, umori e diario. Chi lo ha può leggerlo.</p>
-  <label class="check small"><input type="checkbox" id="nodiary"> Togli il diario dal codice (umori e risposte restano qui)</label>
+  <label class="check small"><input type="checkbox" id="nodiary"> Togli il diario dal codice (umori, risposte e appunti sulle verifiche restano qui)</label>
   <textarea class="txt" id="code" readonly></textarea>
   <button class="btn" data-act="copycode">📋 Copia il codice</button>
   <button class="btn ghost" data-act="savefile">⬇️ Scarica una copia di sicurezza (file)</button>
@@ -1794,6 +1921,10 @@ const ACT = {
   reset: resetModal,
   doreset: () => { if (($('#rc')?.value || '').trim().toUpperCase() !== 'CANCELLA') return toast('Scrivi CANCELLA'); localStorage.removeItem(KEY); S = {}; norm(); W = null; draft = null; diaryAll = false; MQ.length = 0; $('#modal')._opt = {}; nextModal(); render(); },
 };
+// azioni di Studio (data-act="st-…"): solo funzioni, solo con quel prefisso, mai sopra un'azione che c'è già
+try { const sa = stUi()?.actions; if (stPlain(sa)) for (const [k, f] of Object.entries(sa)) if (k.startsWith('st-') && typeof f === 'function' && !Object.prototype.hasOwnProperty.call(ACT, k)) { ACT[k] = f; stHooked++; } } catch(e) { try { console.error('Studio.actions', e); } catch(_) {} }
+// azioni del Percorso (data-act="pc-…"): stesse regole
+try { const pa = pcUi()?.actions; if (stPlain(pa)) for (const [k, f] of Object.entries(pa)) if (k.startsWith('pc-') && typeof f === 'function' && !Object.prototype.hasOwnProperty.call(ACT, k)) { ACT[k] = f; pcHooked++; } } catch(e) { try { console.error('Percorso.actions', e); } catch(_) {} }
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-act]'); if (!el) return;
   const f = ACT[el.dataset.act] || WACT[el.dataset.act]; if (!f) return;
@@ -2149,9 +2280,12 @@ function checkDay(){
 let hiddenAt = 0;
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { hiddenAt = Date.now(); return; }
-  if (hiddenAt && Date.now() - hiddenAt > 30 * 60e3 && !W && !mOpen && !document.activeElement?.matches('textarea, input')) { location.reload(); return; }
+  // Studio: niente ricarico mentre corre un timer di studio o mentre è aperta la scheda Studio (lì una verifica a metà sta solo in memoria);
+  // il timer parte comunque da «start» e la versione nuova arriva al rientro successivo o dal banner in Quest
+  const stBusy = (!!stUi() && (!!S.ui?.stTimer || (S.ui?.tab === 'studio' && stOn()))) || pcBusy();   // Percorso: niente ricarico con una risposta scritta a metà
+  if (hiddenAt && Date.now() - hiddenAt > 30 * 60e3 && !W && !mOpen && !stBusy && !document.activeElement?.matches('textarea, input')) { location.reload(); return; }
   if (viewDay && hiddenAt && Date.now() - hiddenAt > 10 * 60e3) viewDay = null;
-  checkDay(); checkVersion(); timerCheck();
+  checkDay(); checkVersion(); timerCheck(); stTick();
   navigator.serviceWorker?.getRegistration?.().then(g => g && g.update()).catch(() => {});
   if (AC) AC.suspend().then(() => AC.resume()).catch(() => { try { AC.close(); } catch(e) {} AC = null; });
 });
@@ -2165,7 +2299,7 @@ catch (err) {
   app.innerHTML = `<div class="card"><h2>⚠️ Qualcosa non va con i dati salvati</h2><p class="small">Il gioco non riesce a leggere la partita. Copia i dati (senza il diario) e mandali a chi ti ha dato l'app, poi puoi ricominciare.</p><button class="btn" id="rawcopy">📋 Copia i dati (senza diario)</button><button class="btn ghost" data-act="reset">Ricomincia da zero</button></div>`;
   $('#rawcopy').onclick = () => {
     let t = localStorage.getItem(KEY) || '';
-    try { const o = JSON.parse(t); if (Array.isArray(o?.ev)) o.ev = o.ev.map(e => e?.t === 'answer' ? {t:'answer', d:e.d, skip:e.skip} : e?.t === 'mood' ? {t:'mood', d:e.d} : e); t = JSON.stringify(o); } catch(e) {}
+    try { const o = JSON.parse(t); if (Array.isArray(o?.ev)) o.ev = o.ev.map(e => e?.t === 'answer' ? {t:'answer', d:e.d, skip:e.skip} : e?.t === 'mood' ? {t:'mood', d:e.d} : e); stNoDiary(o); pcNoDiary(o); t = JSON.stringify(o); } catch(e) {}
     copyText(t, 'Dati copiati ✓');
   };
 }
