@@ -76,6 +76,27 @@
     return cp.slice(0, max).join('').trim();
   }
 
+  /* ---------- il tempo di ogni giorno (4.0) ---------- */
+  const MAXAV = 120;                                         // risposte «quanto tempo hai oggi?» tenute (le più recenti)
+  const MAXDAY = 240;                                        // minuti al giorno: il massimo che si può dire
+  // una settimana tipo valida (7 numeri da 0 a 240, a multipli di 5, almeno un giorno > 0) o null
+  function weekOf(v) {
+    if (!Array.isArray(v) || v.length !== 7) return null;
+    const w = v.map(x => { const n = numOf(x); return Number.isFinite(n) ? clamp(round5(n), 0, MAXDAY) : NaN; });
+    return w.every(Number.isFinite) && w.some(x => x > 0) ? w : null;
+  }
+  // le risposte del giorno: {giorno: minuti}, solo giorni veri, al massimo le 120 più recenti; null se non ce n'è nessuna
+  function availOf(v) {
+    if (!isObj(v)) return null;
+    const ks = Object.keys(v).filter(k => isDay(k) && Number.isFinite(numOf(v[k]))).sort().slice(-MAXAV);
+    if (!ks.length) return null;
+    const o = {};
+    for (const k of ks) o[k] = clamp(round5(numOf(v[k])), 0, MAXDAY);
+    return o;
+  }
+  const hasTime = cfg => !!(cfg && (Array.isArray(cfg.wk) || Array.isArray(cfg.hwk) || (isObj(cfg.av) && Object.keys(cfg.av).length) || (isObj(cfg.hav) && Object.keys(cfg.hav).length)));
+  const hwDone = (st, k) => isObj(st.hwd) && Number.isFinite(st.hwd[k]) ? st.hwd[k] : 0;
+
   /* ---------- stato ---------- */
   function defaults() {
     return {v: 1, intro: 0, cfg: {days: [1, 1, 1, 1, 1, 1, 0], cap: 90, block: 25, buffer: 2, off: []}, tests: [], log: [], days: {}};
@@ -131,6 +152,10 @@
     const base = isObj(o.base) && Number.isFinite(numOf(o.base.q)) && Number.isFinite(numOf(o.base.n))
       ? {q: int(o.base.q, 0, 1440, 0), n: int(o.base.n, 0, 366, 0), w: int(o.base.w, 0, MAXW, w), d: isDay(o.base.d) ? o.base.d : p.date, x: int(o.base.x, 0, MAXW, 0)}
       : promise(makeCal(cfg, num(created)), cfg, num(p.date), num(created), w, w, p.date);
+    if (isObj(o.base) && base.lv === undefined && o.base.lv != null && Number.isFinite(numOf(o.base.lv))) {
+      base.lv = int(o.base.lv, 0, 1440, 0);
+      if (o.base.o != null && Number.isFinite(numOf(o.base.o)) && numOf(o.base.o) > 0) base.o = int(o.base.o, 0, MAXW, 0);
+    }
     return {id: null, subj: p.subj, name: p.name, date: p.date, created, sheet: p.sheet, base, topics,
       grade, gradeD: grade == null ? null : (isDay(o.gradeD) ? o.gradeD : p.date),
       feel: o.feel == null ? null : int(o.feel, 1, 5, null), note: str(o.note, 200)};
@@ -158,6 +183,22 @@
     st.cfg.block = round5(int(g.block, 15, 45, 25));
     st.cfg.buffer = int(g.buffer, 0, 3, 2);
     st.cfg.off = [...new Set(arr(g.off).filter(isDay))].sort().slice(-MAXOFF);
+    // 4.0: il tempo di ogni giorno. wk = minuti di una settimana tipo (lun..dom, 0 = cuscinetto): comanda lui su days e cap.
+    // av = la risposta a «quanto tempo hai oggi?» per un giorno preciso (0 = oggi niente). Le chiavi ci sono solo se servono.
+    const wk = weekOf(g.wk);
+    if (wk) { st.cfg.wk = wk; st.cfg.days = wk.map(v => v > 0 ? 1 : 0); st.cfg.cap = clamp(Math.max(...wk), 30, 240); }
+    const av = availOf(g.av);
+    if (av) st.cfg.av = av;
+    // i compiti contano come studio: hwk = minuti di compiti di solito (lun..dom), da since in poi; hav = quelli di un giorno
+    const hwk = Array.isArray(g.hwk) && g.hwk.length === 7 ? g.hwk.map(x => { const n = numOf(x); return Number.isFinite(n) ? clamp(round5(n), 0, MAXDAY) : 0; }) : null;
+    if (hwk && hwk.some(x => x > 0)) { st.cfg.hwk = hwk; if (isDay(g.since)) st.cfg.since = g.since; }
+    const hav = availOf(g.hav);
+    if (hav) st.cfg.hav = hav;
+    // i minuti di compiti fatti, giorno per giorno
+    if (isObj(raw.hwd)) {
+      const ks = Object.keys(raw.hwd).filter(k => isDay(k) && Number.isFinite(numOf(raw.hwd[k])) && numOf(raw.hwd[k]) > 0).sort().slice(-MAXSTAMP);
+      if (ks.length) { st.hwd = {}; for (const k of ks) st.hwd[k] = int(raw.hwd[k], 0, 600, 0); }
+    }
     const days = {};
     let ref = null;                                          // l'ultimo giorno timbrato: l'ultima volta che l'app è stata usata
     if (isObj(raw.days)) {
@@ -188,12 +229,27 @@
   function clean(raw) { try { return cleanCore(raw); } catch (e) { return defaults(); } }
 
   /* ---------- calendario: giorni buoni (di studio e non «off») ---------- */
+  /* 4.0: ogni giorno ha il suo tempo.
+     max(n) = il tempo che ha quel giorno, compiti compresi: la risposta di oggi (av), se no la settimana tipo (wk), se no il tetto.
+     hw(n)  = i compiti previsti (risposta del giorno hav, se no i compiti di solito hwk dal giorno in cui li ha messi: since).
+     capOf(n) = il posto che resta per le verifiche = max − compiti. Il piano non lo supera mai, salvo che il lavoro non ci stia.
+     Senza wk, hwk, av e hav il calendario è quello della 3.0, identico. */
   function makeCal(cfg, anchor) {
     const offs = new Set(cfg.off.map(num)), wd = cfg.days;
-    const good = n => wd[dowN(n)] === 1 && !offs.has(n);
+    const wk = Array.isArray(cfg.wk) && cfg.wk.length === 7 ? cfg.wk : null, hwk = Array.isArray(cfg.hwk) && cfg.hwk.length === 7 ? cfg.hwk : null;
+    const since = isDay(cfg.since) ? num(cfg.since) : -Infinity, av = new Map(), hav = new Map();
+    if (isObj(cfg.av)) for (const k in cfg.av) if (isDay(k)) av.set(num(k), cfg.av[k]);
+    if (isObj(cfg.hav)) for (const k in cfg.hav) if (isDay(k)) hav.set(num(k), cfg.hav[k]);
+    const plain = !wk && !hwk && !av.size && !hav.size;
+    const on = n => !offs.has(n) && (av.has(n) ? av.get(n) > 0 : wd[dowN(n)] === 1);       // giorno in cui studia
+    const max = n => offs.has(n) ? 0 : av.has(n) ? av.get(n) : wk ? wk[dowN(n)] : wd[dowN(n)] === 1 ? cfg.cap : 0;
+    const hw = n => hav.has(n) ? hav.get(n) : offs.has(n) || av.get(n) === 0 || !hwk || n < since ? 0 : hwk[dowN(n)];
+    const capOf = plain ? (() => cfg.cap) : (n => on(n) ? Math.max(0, max(n) - hw(n)) : 0);
+    const good = plain ? (n => wd[dowN(n)] === 1 && !offs.has(n)) : (n => on(n) && capOf(n) >= 5);
     // conteggi precalcolati attorno ad anchor («oggi»): indietro quanto guardano i premi, avanti quanto guarda il piano
     const B = anchor - HIST - 8, N = HIST + HOR + 32, pre = new Int32Array(N + 1);
-    for (let k = 0; k < N; k++) pre[k + 1] = pre[k] + (good(B + k) ? 1 : 0);
+    let minCap = plain ? cfg.cap : Infinity;
+    for (let k = 0; k < N; k++) { const g = good(B + k); pre[k + 1] = pre[k] + (g ? 1 : 0); if (g && !plain) minCap = Math.min(minCap, capOf(B + k)); }
     // quanti giorni buoni da a a b compresi
     const cnt = (a, b) => {
       if (b < a) return 0;
@@ -201,7 +257,41 @@
       let c = 0; for (let d = a, e = Math.min(b, a + HOR + 8); d <= e; d++) if (good(d)) c++;
       return c;
     };
-    return {good, cnt, isOff: n => offs.has(n), cushion: n => wd[dowN(n)] !== 1 && !offs.has(n)};
+    return {good, cnt, capOf, max, hw, on, plain, minCap: minCap === Infinity ? 0 : minCap,
+      isOff: n => offs.has(n), busy: n => !offs.has(n) && av.get(n) === 0,
+      cushion: n => wd[dowN(n)] !== 1 && !offs.has(n) && !av.has(n)};
+  }
+  // il livello λ (minuti): Σ min(posto del giorno, λ) = L sui giorni buoni da S a we. o = quello che non ci sta nemmeno pieni
+  function levelFor(cal, S, we, L) {
+    const caps = [];
+    for (let d = S; d <= we && d <= S + HOR; d++) if (cal.good(d)) caps.push(cal.capOf(d));
+    if (!caps.length || L <= 0) return {lv: 0, o: Math.max(0, L)};
+    caps.sort((a, b) => a - b);
+    let left = L, k = caps.length;
+    for (const c of caps) { if (c * k >= left) return {lv: Math.min(1440, ceil5(left / k)), o: 0}; left -= c; k--; }
+    return {lv: caps[caps.length - 1], o: left};
+  }
+  /* Riempie i giorni come si riempiono dei bicchieri: u unità da 5 minuti, c[j] = posto del giorno j (in unità).
+     Parti uguali col resto sui primi giorni; un giorno con poco posto prende quel che può e il resto va sugli altri.
+     Con poco lavoro blocchi da 15 minuti sui primi giorni, come share(). rest = quello che non ci sta. */
+  const sum5 = a => a.reduce((s, x) => s + x, 0);
+  function fill(u, c) {
+    const r = c.length, m = new Array(r).fill(0);
+    if (u <= 0 || !r) return {m, rest: Math.max(0, u)};
+    let left = u;
+    if (u < 3 * r) {
+      for (let j = 0; j < r && left > 0; j++) { const x = Math.min(3, c[j], left); m[j] = x; left -= x; }
+      if (left <= 0) return {m, rest: 0};
+    }
+    const room = c.map((x, j) => Math.max(0, x - m[j]));
+    let tot = 0, hi = 0; for (const x of room) { tot += x; if (x > hi) hi = x; }
+    if (tot <= left) { for (let j = 0; j < r; j++) m[j] += room[j]; return {m, rest: left - tot}; }
+    let lo = 1;                                              // il livello più basso che basta
+    while (lo < hi) { const mid = (lo + hi) >> 1; let s = 0; for (const x of room) s += Math.min(x, mid); if (s >= left) hi = mid; else lo = mid + 1; }
+    let s = 0; const add = room.map(x => { const v = Math.min(x, lo - 1); s += v; return v; });
+    let extra = left - s;
+    for (let j = 0; j < r; j++) { if (extra > 0 && room[j] >= lo) { add[j]++; extra--; } m[j] += add[j]; }
+    return {m, rest: 0};
   }
 
   /* ---------- quanto lavoro tocca a ogni giorno ----------
@@ -225,7 +315,16 @@
     return {q: Math.min(1440, (r ? share(u, r, 0) : u) * 5), n: r ? usedDays(u, r) : 0};
   }
 
-  const promise = (cal, cfg, dn, S, L, w, d) => { const b = baseAt(cal, cfg, dn, S, L); return {q: b.q, n: b.n, w, d, x: 0}; };
+  // con il tempo per giorno (4.0) la promessa ha anche il livello lv: un giorno corto conta per quello che può dare,
+  // così chi fa quello che il piano chiede in un giorno da 20 minuti non risulta «indietro». o = minuti che non ci stavano già
+  function promise(cal, cfg, dn, S, L, w, d) {
+    const b = baseAt(cal, cfg, dn, S, L), out = {q: b.q, n: b.n, w, d, x: 0};
+    if (hasTime(cfg) && L > 0) {
+      const we = Math.min(dn - cfg.buffer - 1, S + HOR);
+      if (we >= S && cal.cnt(S, we) > 0) { const f = levelFor(cal, S, we, L); out.lv = f.lv; if (f.o > 0) out.o = f.o; }
+    }
+    return out;
+  }
 
   /* ---------- il lavoro di una verifica, riga per riga ----------
      rows: [{r, dn}] della verifica, in ordine di giorno.
@@ -326,8 +425,16 @@
         tp: w.tp, total: w.total, totalEff: w.totalEff, left: w.left, left0, hd: w.hd, hc: w.hc, nomEff: w.nomEff, hn: w.hn, owe: w.owe,
         // ripasso: il 15 % del lavoro fra 15 e 40 minuti, ma mai più lungo di una giornata di studio promessa («così sei anche tranquillo»)
         rv: Math.min(clamp(round5(w.total * 0.15), 15, 40), Math.max(15, floor5(base.q))), base, revToday, revN,
-        order: w.tp.slice().sort((a, b) => a.conf - b.conf || a.i - b.i)};
+        order: w.tp.slice().sort((a, b) => a.conf - b.conf || a.i - b.i), cov: null, covLo: 0};
     });
+    // 4.0: per le promesse col livello, quanto lavoro copre la promessa da ogni giorno in poi (somme dal fondo)
+    for (const t of c.tests) if (t.base.lv != null && !t.graded) {
+      const lo = Math.max(Math.min(t.cr, Tn), t.rdy - 800), hi = t.rdy;
+      if (hi < lo) continue;
+      const cov = new Int32Array(hi - lo + 2);
+      for (let d = hi; d >= lo; d--) cov[d - lo] = cov[d - lo + 1] + (cal.good(d) ? Math.min(cal.capOf(d), t.base.lv) : 0);
+      t.cov = cov; t.covLo = lo;
+    }
     c.byDate = c.tests.slice().sort((a, b) => a.dn - b.dn || a.i - b.i);       // la più vicina per prima
     return c;
   }
@@ -335,22 +442,30 @@
   const activeOn = (t, S) => t.cr <= S && S < t.dn && !(t.graded && t.gdn <= S);
   // ritardo: lavoro dovuto (L, vedi hn in work) oltre quello che la promessa (base) lascia per i giorni buoni che restano da dn
   function behindOf(c, t, L, dn) {
+    if (t.cov) {
+      const cv = dn > t.rdy ? 0 : t.cov[clamp(dn - t.covLo, 0, t.cov.length - 1)];
+      return floor5(Math.max(0, L - cv - (t.base.o || 0)));
+    }
     const we = Math.min(t.rdy, dn + HOR), r = we >= dn ? c.cal.cnt(dn, we) : 0;
     return floor5(Math.max(0, L - t.base.q * Math.min(r, t.base.n)));
   }
 
   /* ---------- il piano a partire dal giorno S, con il lavoro L[i] per verifica ----------
+     4.0: prima la verifica più vicina. I giorni di ripasso si tengono per primi (sono sacri); poi ogni verifica, dalla più
+     vicina alla più lontana, riempie i suoi giorni di studio con il posto che le lasciano quelle prima di lei, in parti
+     uguali e senza superare il tempo del giorno. Quella lontana si prende quello che resta: in un giorno corto la vicina
+     ha la precedenza. Quello che non ci sta nemmeno così resta nel piano sopra il tetto (sfora, non nasconde) ed è «over».
      quick: basta la quota del primo giorno (se nessun giorno può superare il tetto non serve altro).
      Restituisce {q0, list, tot, over}; list = verifiche in gioco con ds/ms (giorni e minuti di studio o rush) e vs (ripasso). */
   function allocate(c, S, L, quick) {
-    const cap = c.cfg.cap, buf = c.cfg.buffer, cal = c.cal, good0 = cal.good(S), list = [];
+    const buf = c.cfg.buffer, cal = c.cal, good0 = cal.good(S), list = [];
     let U = 0, q0 = 0, H = 1;
     for (const t of c.byDate) {
       if (!activeOn(t, S)) continue;
       const l = L[t.i], u = l > 0 ? Math.ceil(l / 5) : 0;
       const we = Math.min(t.rdy, S + HOR), r = we >= S ? cal.cnt(S, we) : 0;                  // finestra di studio
       const rs = Math.max(S, t.dn - buf), re = t.dn - 1, rr = re >= rs && rs <= S + HOR ? cal.cnt(rs, re) : 0;   // giorni di ripasso
-      const e = {t, u, r, rr, rs, re, phase: null, n: 0, from: 0, to: -1, rate: 0, over: 0, ds: [], ms: [], vs: []};
+      const e = {t, u, r, rr, rs, re, phase: null, n: 0, from: 0, to: -1, rate: 0, over: 0, tight: 0, ds: [], ms: [], vs: [], xs: [], xm: []};
       if (u > 0) {
         if (r > 0) { e.phase = 'study'; e.n = r; e.from = S; e.to = we; }
         else if (rr > 0) { e.phase = 'rush'; e.n = rr; e.from = rs; e.to = re; }      // niente finestra: tutto nei giorni di ripasso
@@ -362,65 +477,38 @@
       if (good0) { if (e.phase && e.from === S) q0 += e.rate; if (rr > 0 && rs === S) q0 += t.rv; }
       list.push(e);
     }
-    if (quick && U <= cap) return {q0, list, tot: null, over: 0};
-    const tot = new Array(H).fill(0);
-    for (const e of list) {
-      if (e.phase) for (let d = e.from, j = 0; d <= e.to && j < e.n; d++) if (cal.good(d)) {
-        const m = share(e.u, e.n, j++) * 5; e.ds.push(d - S); e.ms.push(m); tot[d - S] += m;
-      }
-      if (e.rr > 0) for (let d = e.rs; d <= e.re; d++) if (cal.good(d)) { e.vs.push(d - S); tot[d - S] += e.t.rv; }
+    // se anche sommando le parti uguali di tutte nessun giorno arriva al suo tempo, nessuno deve cedere niente: è la 3.0
+    if (quick && U <= cal.minCap) return {q0, list, tot: null, over: 0};
+    const tot = new Array(H).fill(0), capAt = o => cal.capOf(S + o);
+    const roomU = o => Math.max(0, Math.floor((capAt(o) - tot[o]) / 5));
+    // 1. i ripassi
+    for (const e of list) if (e.rr > 0) for (let d = e.rs; d <= e.re; d++) if (cal.good(d)) {
+      const o = d - S, room = Math.max(0, capAt(o) - tot[o]);
+      e.vs.push(o); tot[o] += e.t.rv; if (e.t.rv > room) e.over += e.t.rv - room;
     }
-    // tetto: dal fondo, l'eccesso di un giorno si anticipa sui giorni buoni prima (prima la verifica più vicina)
-    if (tot.some(m => m > cap)) {
-      for (const e of list) e.kp = e.ds.length - 1;           // per ogni verifica: il suo ultimo giorno ≤ quello in esame
-      let free = 0;                                            // posto libero sotto il tetto prima del giorno in esame
-      for (let off = 0; off < H; off++) if (tot[off] < cap) free += cap - tot[off];
-      for (let off = H - 1; off >= 0; off--) {
-        if (tot[off] < cap) { free -= cap - tot[off]; continue; }
-        let ex = tot[off] - cap; if (ex <= 0 || free <= 0) continue;
-        for (const e of list) {                                // list è in ordine di data: la più vicina per prima
-          while (e.kp >= 0 && e.ds[e.kp] > off) e.kp--;
-          const k = e.kp; if (k < 0 || e.ds[k] !== off) continue;
-          for (let kk = k - 1; kk >= 0 && ex > 0 && e.ms[k] > 0; kk--) {
-            const o2 = e.ds[kk], room = cap - tot[o2]; if (room <= 0) continue;
-            const mv = Math.min(ex, e.ms[k], room);
-            e.ms[k] -= mv; e.ms[kk] += mv; tot[off] -= mv; tot[o2] += mv; ex -= mv; free -= mv;
-          }
-          if (ex <= 0) break;
-        }
+    // 2. lo studio, dalla verifica più vicina (list è in ordine di data)
+    for (const e of list) {
+      if (!e.phase) continue;
+      const offs = [];
+      for (let d = e.from; d <= e.to && offs.length < e.n; d++) if (cal.good(d)) offs.push(d - S);
+      const f = fill(e.u, offs.map(roomU));
+      let rest = f.rest;
+      const ms = f.m.slice();
+      // Non ci sta nei giorni di studio (4.0): i giorni prima stanno nel loro massimo. Quello che avanza va prima nel posto
+      // libero dei giorni di ripasso (si finisce a ridosso: «tight»), poi sopra il massimo, ma solo nei giorni subito prima
+      // della verifica (l'eccezione di Giorgio: «se domani c'è la verifica»). Si conta come «over» e il piano lo dice.
+      const rv = [];
+      if (rest > 0 && e.phase === 'study' && e.rr > 0 && !cal.plain) for (let d = e.rs; d <= e.re; d++) if (cal.good(d)) rv.push(d - S);
+      const xm = rv.map(() => 0);
+      if (rv.length) { const g = fill(rest, rv.map(roomU)); g.m.forEach((x, j) => { xm[j] = x; }); rest = g.rest; e.tight += (sum5(g.m)) * 5; }
+      if (rest > 0) {
+        e.over += rest * 5;
+        if (rv.length) for (let j = 0; j < rv.length; j++) xm[j] += Math.ceil((rest - j) / rv.length);
+        else if (e.phase === 'rush' || cal.plain) for (let j = 0; j < ms.length; j++) ms[j] += Math.ceil((rest - j) / ms.length);   // 3.0 o già a ridosso: in parti uguali
+        else ms[ms.length - 1] += rest;                         // senza ripasso: il giorno prima della verifica
       }
-      // quello che prima non trova posto (i primi giorni non hanno un «prima») si rimanda: dalla verifica più lontana,
-      // sui suoi giorni di studio dopo che stanno sotto il tetto. Solo quello che resta è davvero «non ci sta»
-      // nx[d] = il primo giorno ≥ d che è di studio e sta sotto il tetto (si aggiorna man mano che i giorni si riempiono)
-      const nx = new Int32Array(H + 1);
-      for (let o = 0; o < H; o++) nx[o] = tot[o] < cap && cal.good(S + o) ? o : o + 1;
-      nx[H] = H;
-      const next = o => { let r = o; while (nx[r] !== r) r = nx[r]; while (nx[o] !== r) { const t = nx[o]; nx[o] = r; o = t; } return r; };
-      for (const e of list) e.kf = 0;
-      for (let off = 0; off < H; off++) {
-        let ex = tot[off] - cap; if (ex <= 0) continue;
-        let D = next(off + 1); if (D >= H) break;              // dopo non c'è più posto per nessuno
-        for (let x = list.length - 1; x >= 0 && ex > 0 && D < H; x--) {
-          const e = list[x], n = e.ds.length; if (!n || e.ds[n - 1] < D) continue;
-          while (e.kf < n && e.ds[e.kf] < off) e.kf++;
-          const k = e.kf; if (k >= n || e.ds[k] !== off) continue;
-          for (; D <= e.ds[n - 1] && ex > 0 && e.ms[k] > 0; D = next(D)) {
-            const kk = cal.cnt(e.from, S + D) - 1, mv = Math.min(ex, e.ms[k], cap - tot[D]);   // ds = tutti i giorni buoni da e.from
-            e.ms[k] -= mv; e.ms[kk] += mv; tot[off] -= mv; tot[D] += mv; ex -= mv;
-            if (tot[D] >= cap) nx[D] = D + 1;
-          }
-        }
-      }
-      for (const e of list) e.kp = e.ds.length - 1;
-      for (let off = H - 1; off >= 0; off--) {
-        let ex = tot[off] - cap; if (ex <= 0) continue;
-        // non ci sta nemmeno così: resta lì (il piano sfora, non nasconde) e lo si conta, dalla verifica più lontana
-        for (let x = list.length - 1; x >= 0 && ex > 0; x--) {
-          const e = list[x]; while (e.kp >= 0 && e.ds[e.kp] > off) e.kp--;
-          if (e.kp >= 0 && e.ds[e.kp] === off) { const p = Math.min(ex, e.ms[e.kp]); e.over += p; ex -= p; }
-        }
-        for (let x = list.length - 1; x >= 0 && ex > 0; x--) if (list[x].vs.includes(off)) { const p = Math.min(ex, list[x].t.rv); list[x].over += p; ex -= p; }
-      }
+      for (let j = 0; j < offs.length; j++) { const m = ms[j] * 5; e.ds.push(offs[j]); e.ms.push(m); tot[offs[j]] += m; }
+      for (let j = 0; j < rv.length; j++) if (xm[j] > 0) { const m = xm[j] * 5; e.xs.push(rv[j]); e.xm.push(m); tot[rv[j]] += m; }
     }
     return {q0: tot[0], list, tot, over: list.reduce((s, e) => s + e.over, 0)};
   }
@@ -526,7 +614,7 @@
       const lost = f ? f.over : (e ? X[t.i] : 0);
       return {id: t.id, test: t.x, status, daysTo: t.dn - Tn, total: t.total, left: l, pct: t.total > 0 ? Math.round(100 * (t.total - l) / t.total) : 100,
         readyBy: key(t.rdy), quota: !act ? 0 : status === 'review' ? t.rv : status === 'ready' ? 0 : (e ? e.rate : 0), base: {q: t.base.q, n: t.base.n},
-        availLeft: act ? r : 0, behind, overload: Math.max(e ? e.over : 0, lost), reviewMin: t.rv};
+        availLeft: act ? r : 0, behind, overload: Math.max(e ? e.over : 0, lost), reviewMin: t.rv, tight: act && e ? e.tight : 0};
     });
     const rank = s => ACTIVE[s.status] ? 0 : s.status === 'wait' ? 1 : 2;
     tests.sort((a, b) => rank(a) - rank(b) || (rank(a) === 0 ? a.daysTo - b.daysTo : b.daysTo - a.daysTo));
@@ -545,7 +633,10 @@
     for (const x of need) { workBlocks(blocks, x.t, x.w, rem, cfg.block); revBlocks(blocks, x.t, x.v, x.t.dn - Tn, cfg.block); }
     for (const x of need) if (x.c > 0) workBlocks(blocks, x.t, x.c, rem, cfg.block);
 
-    const full = fullDay(q, done) || (done > 0 && q > 0 && finishedAll(c, Tn, Lm, Ln));
+    // i compiti contano come studio: la giornata è piena con verifiche + compiti (o con la quota delle verifiche e i compiti fatti)
+    const hq = cal.hw(Tn), hm = hwDone(st, T);
+    const tFull = fullDay(q, done) || (done > 0 && q > 0 && finishedAll(c, Tn, Lm, Ln));
+    const full = hq > 0 || hm > 0 ? fullDay(q + hq, done + hm) || (q > 0 && tFull && hm >= hq - 5) : tFull;
     const sk = quotaAt(c, Tn + 1, Ln);                 // domani, se da adesso in poi oggi non fa più niente
     // …e il prossimo giorno di studio (il sabato «domani» è il cuscinetto: il conto arriva lunedì)
     let skipNext = null;
@@ -554,7 +645,12 @@
     const onDay = new Map();
     for (const t of c.byDate) if (!t.graded) { let l = onDay.get(t.dn); if (!l) onDay.set(t.dn, l = []); l.push(t.id); }
     const days = [];
-    for (let k = 0; k < NDAYS; k++) { const dn = Tn + k; days.push({d: key(dn), q: 0, off: cal.isOff(dn), study: cal.good(dn), over: 0, tests: onDay.get(dn) || [], items: []}); }
+    for (let k = 0; k < NDAYS; k++) {
+      const dn = Tn + k, day = {d: key(dn), q: 0, off: cal.isOff(dn), study: cal.good(dn), over: 0, tests: onDay.get(dn) || [], items: []};
+      // 4.0: il tempo del giorno (max), i compiti (hw), il posto per le verifiche (cap), «oggi niente» (busy), giorno di studio (on)
+      if (!cal.plain) Object.assign(day, {max: cal.max(dn), hw: cal.hw(dn), cap: cal.capOf(dn), busy: cal.busy(dn), on: cal.on(dn)});
+      days.push(day);
+    }
     for (const x of need) {
       if (x.w > 0) days[0].items.push({tid: x.t.id, min: x.w, phase: x.e.phase || 'study'});
       if (x.v > 0) days[0].items.push({tid: x.t.id, min: x.v, phase: 'review'});
@@ -562,17 +658,22 @@
     days[0].q = q;
     for (const e of F.list) {
       e.ds.forEach((off, k) => { if (off + 1 < NDAYS && e.ms[k] > 0) { days[off + 1].items.push({tid: e.t.id, min: e.ms[k], phase: e.phase}); days[off + 1].q += e.ms[k]; } });
+      e.xs.forEach((off, k) => { if (off + 1 < NDAYS && e.xm[k] > 0) { days[off + 1].items.push({tid: e.t.id, min: e.xm[k], phase: 'rush'}); days[off + 1].q += e.xm[k]; } });
       for (const off of e.vs) if (off + 1 < NDAYS) { days[off + 1].items.push({tid: e.t.id, min: e.t.rv, phase: 'review'}); days[off + 1].q += e.t.rv; }
     }
-    for (const d of days) d.over = Math.max(0, d.q - cap);
+    for (const d of days) d.over = Math.max(0, d.q - (cal.plain ? cap : d.cap));
 
     const warnings = [];
     for (const s of tests) {
       if (s.overload > 0) warnings.push({k: 'overload', tid: s.id, min: s.overload});
       if (s.status === 'rush') warnings.push({k: 'rush', tid: s.id, min: s.left});
+      else if (s.tight > 0) warnings.push({k: 'rush', tid: s.id, min: s.tight});        // finisce nei giorni di ripasso
       else if (s.status === 'behind') warnings.push({k: 'late', tid: s.id, min: s.behind});
     }
-    return {T, today: {d: T, q, done, left, full, rest: q === 0 && !cushion, cushion, skipCost: sk > 0 ? sk : null, skipNext, blocks},
+    const today = {d: T, q, done, left, full, rest: q === 0 && !cushion, cushion, skipCost: sk > 0 ? sk : null, skipNext, blocks};
+    if (!cal.plain || hm > 0) Object.assign(today, {max: cal.max(Tn), hw: hq, hwDone: hm, cap: cal.capOf(Tn),
+      avail: isObj(cfg.av) && Number.isFinite(cfg.av[T]) ? cfg.av[T] : null, hwSet: isObj(cfg.hav) && Number.isFinite(cfg.hav[T]) ? cfg.hav[T] : null});
+    return {T, today,
       days, tests, overload: tests.reduce((s, x) => s + x.overload, 0), warnings};
   }
   // non modifica st e non lancia: se qualcosa va storto restituisce un piano vuoto con il campo error
@@ -746,6 +847,13 @@
           // quanto deve coprire la promessa in quei giorni: se era in pari, tutto il dovuto; se era indietro, quel ritardo resta
           const cover = b.q * k, need = before <= cover ? after : cover + (after - before);
           if (k > 0 && need > cover) b.q = Math.min(1440, ceil5(need / k));
+          // con il livello (4.0) lo stesso conto si fa sul tempo vero dei giorni che restano
+          if (b.lv != null) {
+            const from = rdy > Tn && cal.cnt(Tn + 1, rdy) > 0 ? Tn + 1 : Tn;
+            let cv = 0; for (let d = from; d <= rdy; d++) if (cal.good(d)) cv += Math.min(cal.capOf(d), b.lv);
+            const nd = before <= cv ? after : cv + (after - before);
+            if (nd > cv) { const f = levelFor(cal, from, rdy, nd); b.lv = Math.max(b.lv, f.lv); if (f.o > 0) b.o = f.o; else delete b.o; }
+          }
         }
         if (Number.isFinite(b.w)) b.x = clamp(nominal(test.topics) - b.w, 0, MAXW);
       }
@@ -753,10 +861,83 @@
     restamp(st, T); return true;
   }
 
+  /* ---------- 4.0: il tempo dei giorni e i compiti ---------- */
+  // un valore per giorno in cfg.av / cfg.hav (null lo toglie); restano le 120 risposte più recenti
+  function putDay(cfg, k, day, v) {
+    if (v == null) { if (isObj(cfg[k])) { delete cfg[k][day]; if (!Object.keys(cfg[k]).length) delete cfg[k]; } return; }
+    const n = numOf(v); if (!Number.isFinite(n)) return;
+    if (!isObj(cfg[k])) cfg[k] = {};
+    cfg[k][day] = clamp(round5(n), 0, MAXDAY);
+    const ks = Object.keys(cfg[k]).sort();
+    for (const x of ks.slice(0, Math.max(0, ks.length - MAXAV))) delete cfg[k][x];
+  }
+  // le promesse delle verifiche aperte ripartono da T con il tempo vero dei giorni (dopo un cambio della settimana tipo)
+  function repromise(st, T) {
+    const cal = makeCal(st.cfg, num(T));
+    for (const t of arr(st.tests)) {
+      if (!isObj(t) || t.grade != null || !isDay(t.date) || t.date <= T || !isObj(t.base)) continue;
+      const was = t.base, w = Number.isFinite(was.w) ? was.w : nominal(arr(t.topics));
+      t.base = promise(cal, st.cfg, num(t.date), num(T), workOf(st, t).nomLeft, w, t.date);
+      t.base.x = Number.isFinite(was.x) ? was.x : 0;
+    }
+  }
+  // La settimana tipo: wk = minuti per giorno (lun..dom, compiti compresi; 0 = cuscinetto: il piano la lascia vuota e lì si
+  // recupera). hwk (facoltativo) = i compiti di solito: valgono da oggi (since), i giorni passati restano com'erano.
+  function setWeek(st, T, wk, hwk) {
+    try {
+      if (!isObj(st) || !isObj(st.cfg) || !isDay(T)) return false;
+      const w = weekOf(wk); if (!w) return false;
+      st.cfg.wk = w; st.cfg.days = w.map(v => v > 0 ? 1 : 0); st.cfg.cap = clamp(Math.max(...w), 30, 240);
+      if (hwk !== undefined) {
+        const h = Array.isArray(hwk) && hwk.length === 7 ? hwk.map(x => { const n = numOf(x); return Number.isFinite(n) ? clamp(round5(n), 0, MAXDAY) : 0; }) : null;
+        const same = h && Array.isArray(st.cfg.hwk) && h.every((x, i) => x === st.cfg.hwk[i]);
+        if (h && h.some(x => x > 0)) { if (!same) { st.cfg.hwk = h; st.cfg.since = T; } }
+        else if (st.cfg.hwk) { delete st.cfg.hwk; delete st.cfg.since; }
+      }
+      repromise(st, T);
+      stamp(st, T, true);
+      return true;
+    } catch (e) { return false; }
+  }
+  // Un giorno preciso: o.av = il tempo che ha (0 = niente, null = come di solito), o.hw = i compiti di quel giorno.
+  // Si rifà la quota di oggi (e, per un giorno passato, quella di quel giorno e dei giorni dopo).
+  function setDay(st, T, day, o) {
+    try {
+      if (!isObj(st) || !isObj(st.cfg) || !isDay(T) || !isDay(day) || !isObj(o)) return false;
+      if ('av' in o) putDay(st.cfg, 'av', day, o.av);
+      if ('hw' in o) putDay(st.cfg, 'hav', day, o.hw);
+      if (day < T) { stamp(st, day, true); restampAfter(st, day); }
+      stamp(st, T, true);
+      return true;
+    } catch (e) { return false; }
+  }
+  // i minuti di compiti fatti in un giorno (totale; 0 li toglie)
+  function setHomework(st, day, min) {
+    try {
+      if (!isObj(st) || !isDay(day)) return false;
+      const m = int(min, 0, 600, 0);
+      if (!isObj(st.hwd)) st.hwd = {};
+      if (m > 0) st.hwd[day] = m; else delete st.hwd[day];
+      if (!Object.keys(st.hwd).length) delete st.hwd;
+      return true;
+    } catch (e) { return false; }
+  }
+  // il tempo di un giorno come lo vede il piano: max (compiti compresi), compiti previsti, posto per le verifiche, fatti
+  function dayInfo(st, day) {
+    try {
+      if (!isObj(st) || !isObj(st.cfg) || !isDay(day)) return null;
+      const cal = makeCal(st.cfg, num(day)), n = num(day), cfg = st.cfg;
+      return {max: cal.max(n), hw: cal.hw(n), cap: cal.capOf(n), on: cal.on(n), busy: cal.busy(n), off: cal.isOff(n), good: cal.good(n),
+        av: isObj(cfg.av) && Number.isFinite(cfg.av[day]) ? cfg.av[day] : null, hav: isObj(cfg.hav) && Number.isFinite(cfg.hav[day]) ? cfg.hav[day] : null,
+        hwDone: hwDone(st, day), usual: Array.isArray(cfg.wk) ? cfg.wk[dow(day)] : (cfg.days[dow(day)] ? cfg.cap : 0),
+        usualHw: Array.isArray(cfg.hwk) ? cfg.hwk[dow(day)] : 0};
+    } catch (e) { return null; }
+  }
+
   /* ---------- premi: tutto ricalcolato dal registro ---------- */
   function emptyRewards() {
     return {xp: 0, gems: 0, streak: 0, best: 0, brace: false, fullDays: 0, minutes: 0, exercises: 0, sessions: 0, bosses: 0, early: 0,
-      comebacks: 0, grades: 0, fives: 0, topics: 0, byDay: new Map(), fullOn: new Set()};
+      comebacks: 0, grades: 0, fives: 0, topics: 0, homework: 0, byDay: new Map(), fullOn: new Set()};
   }
   function rewardsCore(st, T) {
     const Tn = num(T), c = build(st, Tn), R = emptyRewards(), n = c.tests.length;
@@ -765,6 +946,8 @@
     let start = c.first;
     for (const k in st.days) if (isDay(k)) { const dn = num(k); if (dn <= Tn) { stamps.set(dn, st.days[k].q); if (st.days[k].q > 0 && dn < start) start = dn; } }
     for (const t of c.tests) if (t.cr < start) start = t.cr;
+    if (isObj(st.hwd)) for (const k in st.hwd) if (isDay(k)) { const dn = num(k); if (dn < start && dn <= Tn) start = dn; }   // giorni di soli compiti
+    if (Array.isArray(st.cfg.hwk) && isDay(st.cfg.since) && num(st.cfg.since) < start) start = num(st.cfg.since);     // compiti previsti da allora
     start = Math.max(start, Tn - HIST);
     // lavoro rimasto per verifica: Lb all'inizio del giorno, La alla fine
     const ptr = new Array(n).fill(0), Lb = new Array(n), La = new Array(n);
@@ -778,15 +961,20 @@
       if (dn === Tn) { const old = stampOf(st, T); q = dayQuota(q === undefined ? null : q, old ? old.q0 : null, quotaAt(c, dn, morning(c, dn)), min); }   // oggi: come nel piano
       else if (c.cal.isOff(dn)) q = 0;
       else if (q === undefined) q = quotaAt(c, dn, Lb);
-      const full = fullDay(q, min) || (min > 0 && q > 0 && finishedAll(c, dn, Lb, La));
-      R.xp += Math.min(40, Math.floor(min / 3));
+      // i compiti contano come studio (4.0): quelli previsti si sommano alla quota, quelli fatti ai minuti
+      const hq = c.cal.hw(dn), hm = hwDone(st, key(dn));
+      const tFull = fullDay(q, min) || (min > 0 && q > 0 && finishedAll(c, dn, Lb, La));
+      const full = hq > 0 || hm > 0 ? fullDay(q + hq, min + hm) || (q > 0 && tFull && hm >= hq - 5) : tFull;
+      R.xp += Math.min(40, Math.floor((min + hm) / 3));
+      R.minutes += hm; if (hm > 0) R.homework += hm;
+      q += hq;
       if (full) {
         R.fullDays++; R.xp += 5; R.gems += 5; R.streak++; gap = 0;
         if (R.streak > R.best) R.best = R.streak;
         if (R.streak % 5 === 0) R.gems += 15;
         R.fullOn.add(key(dn));
       } else if (q > 0 && dn < Tn && R.streak > 0) { if (++gap >= 2) { R.streak = 0; gap = 0; } }   // due giorni con quota saltati di fila
-      if (min > 0 || q > 0) R.byDay.set(key(dn), {min, q, full});
+      if (min + hm > 0 || q > 0) R.byDay.set(key(dn), hq > 0 || hm > 0 ? {min: min + hm, q, full, hw: hm, hq} : {min, q, full});
     }
     R.brace = gap === 1 && R.streak > 0;
     for (const t of c.tests) {
@@ -886,8 +1074,88 @@
     return added;
   }
 
+  /* ---------- 4.0: il coach capisce frasi semplici (niente AI, niente rete) ----------
+     parse('domani ho solo 20 minuti', T) → {min: 20, day: T+1, …}. Restituisce solo quello che ha trovato: decide la UI. */
+  const NUMW = {un: 1, uno: 1, una: 1, due: 2, tre: 3, quattro: 4, cinque: 5, sei: 6, sette: 7, otto: 8, nove: 9, dieci: 10, quindici: 15,
+    venti: 20, venticinque: 25, trenta: 30, trentacinque: 35, quaranta: 40, quarantacinque: 45, cinquanta: 50, sessanta: 60, novanta: 90, cento: 100};
+  const WDAYS = [['lunedi', 'lun'], ['martedi', 'mar'], ['mercoledi', 'mer'], ['giovedi', 'gio'], ['venerdi', 'ven'], ['sabato', 'sab'], ['domenica', 'dom']];
+  const SUBJ = [['mate', /\b(mate|matematica|mat|aritmetica|geometria|algebra|calcolo)\b/], ['ita', /\b(italiano|ita|tema|grammatica)\b/],
+    ['ted', /\b(tedesco|ted|deutsch)\b/], ['fra', /\b(francese|franc)\b/], ['ing', /\b(inglese|ingl|english)\b/],
+    ['sci', /\b(scienze|scienza|biologia|chimica|fisica|sci)\b/], ['sto', /\b(storia|sto)\b/], ['geo', /\b(geografia|geo)\b/], ['lat', /\b(latino|lat)\b/],
+    ['vis', /\b(visiva|disegno|arte)\b/], ['mus', /\b(musica|flauto)\b/], ['efis', /\b(ginnastica|educazione fisica|ed fisica|sport)\b/]];
+  const HAS = (s, re) => re.test(s);
+  function norm(text) {
+    return String(text || '').slice(0, 400).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/[‘’´`]/g, "'").replace(/\s+/g, ' ').trim();
+  }
+  function minutesIn(s) {
+    if (/\b(tre quarti d ?'?ora)\b/.test(s)) return 45;
+    if (/\b(un )?quarto d ?'?ora\b/.test(s)) return 15;
+    if (/\b(un'? ?ora e mezz[ao]|1 ora e mezz[ao])\b/.test(s)) return 90;
+    let m = /\b(\d{1,2}) ?(?:ore|ora|h) ?(?:e )?mezz[ao]\b/.exec(s); if (m) return +m[1] * 60 + 30;
+    m = /\b(\d{1,2})(?:[:.,h]| ?(?:ore|ora|h) ?(?:e )?)(\d{1,2}) ?(?:min|minuti|m\b|')?/.exec(s);
+    if (m && /(?:ore|ora|h|:)/.test(m[0]) && +m[2] < 60) return +m[1] * 60 + (m[2].length === 1 && /[.,]/.test(m[0]) ? +m[2] * 6 : +m[2]);
+    m = /\b(\d{1,2}(?:[.,]5)?) ?(?:ore|ora|h)\b/.exec(s); if (m) return Math.round(parseFloat(m[1].replace(',', '.')) * 60);
+    if (/\bmezz ?'?ora\b|\bmezza ora\b/.test(s)) return 30;
+    if (/\bun'? ?ora\b/.test(s)) return 60;
+    m = /\b(\d{1,3}) ?(?:min|minuti|minuto|m\b|')/.exec(s); if (m) return +m[1];
+    return null;
+  }
+  function dayIn(s, T) {
+    if (/\bdopodomani\b/.test(s)) return addD(T, 2);
+    if (/\bdomani\b/.test(s)) return addD(T, 1);
+    if (/\b(oggi|stasera|stamattina|stamani|adesso)\b/.test(s)) return T;
+    // «ora» vuol dire adesso, ma non in «un'ora», «mezz'ora», «quarto d'ora», «2 ora»
+    if (/\bora\b/.test(s.replace(/(un'? ?|mezz ?'?|mezza |d ?'?|\d+ ?)ora\b/g, ' '))) return T;
+    for (let i = 0; i < 7; i++) {
+      const [full, short] = WDAYS[i];
+      if (new RegExp('\\b(' + full + '|' + short + ')\\b').test(s)) {
+        let n = (i - dow(T) + 7) % 7;                        // lo stesso giorno della settimana di oggi è oggi…
+        if (n === 0 && /\bprossim[oa]\b/.test(s)) n = 7;      // …«lunedì prossimo» detto di lunedì è fra una settimana
+        return addD(T, n);
+      }
+    }
+    // «il 26», «26/11», «26.11»
+    let m = /\b(\d{1,2})[./](\d{1,2})\b/.exec(s);
+    if (m) { const y = +T.slice(0, 4), k = (y0 => String(y0) + '-' + pad(+m[2]) + '-' + pad(+m[1])); let c = k(y); if (isDay(c) && c < T) c = k(y + 1); if (isDay(c)) return c; }
+    m = /\b(?:il|per il|lo) (\d{1,2})\b(?! ?(?:min|minuti|ore|ora|h|'))/.exec(s);
+    if (m) { const dd = +m[1]; let c = T.slice(0, 8) + pad(dd); if (isDay(c) && c < T) { const nx = addD(T.slice(0, 8) + '01', 32); c = nx.slice(0, 8) + pad(dd); } if (isDay(c)) return c; }
+    return null;
+  }
+  function parse(text, T) {
+    const s0 = norm(text), out = {text: s0, min: null, day: null, subj: null, size: null, num: null, hw: false, test: false, none: false, free: false, intents: []};
+    if (!s0) return out;
+    const s = s0.replace(/\b[a-z]+\b/g, w => NUMW[w] != null && !/^(un|una|uno)$/.test(w) ? String(NUMW[w]) : w);
+    out.min = minutesIn(s);
+    if (isDay(T)) out.day = dayIn(s, T);
+    for (const [k, re] of SUBJ) if (re.test(s)) { out.subj = k; break; }
+    if (/\b(piccol[ao]|poc[ao]|breve|cort[ao]|facile|leggera)\b/.test(s)) out.size = 'S';
+    else if (/\b(grossa|grosso|grande|lunga|tanta|tanto|enorme|difficile|pesante|tutto il)\b/.test(s)) out.size = 'L';
+    else if (/\b(media|medio|normale)\b/.test(s)) out.size = 'M';
+    const bare = /^\D*(\d{1,3})\D*$/.exec(s); if (bare) out.num = +bare[1];
+    out.hw = HAS(s, /\bcompit/);
+    out.test = HAS(s, /\b(verific|test\b|interrogazion|prova\b|esame)/);
+    out.none = HAS(s, /\b(niente|nulla|zero|non ho tempo|non posso|nessun tempo|impossibile oggi|neanche un minuto)\b/);
+    out.free = HAS(s, /\b(liber[oa]|vacanz|gara|gita|partita|torneo|allenamento|impegn|compleanno|festa|malat|febbre|non ci sono)\b/);
+    const I = out.intents, add = (k, re) => { if (re.test(s)) I.push(k); };
+    add('crisis', /\b(suicid|ammazzarmi|uccidermi|farmi del male|non voglio piu vivere|farla finita|voglio morire|tagliarmi)\b/);
+    add('over', /\b(troppo|troppa|non ce la (faccio|faro)|impossibile|stress|ansia|paura|panico|agitat|tanta roba|non riesco|non ci sto dentro|sommers|disperat)\b/);
+    add('nowill', /\b(voglia|palle|uffa|noia|che noia|stanc|pigr|sbatti|non mi va|mi scoccia|annoiat)\b/);
+    add('next', /\b(cosa faccio|cosa devo fare|che faccio|da dove|da cosa|cosa studio|che studio|prossim[oa] cosa|inizio|comincio|parto|iniziamo|cominciamo|e adesso|e ora)\b/);
+    add('left', /\b(quanto (mi )?manca|quanto devo|quanto studio|quanto tempo devo|quanti minuti|quanto ho|quanto resta)\b/);
+    add('week', /\b(settimana|calendario|programma|piano)\b/);
+    add('done', /\b(fatto|fatta|finito|finita|ho studiato|ho finito|completat)\b/);
+    add('greet', /^(ciao|ehi|hey|ehila|buongiorno|buonasera|salve|we|yo)\b/);
+    add('thanks', /\b(grazie|grz|thanks|gentile)\b/);
+    add('help', /\b(aiuto|aiutami|come funzion|cosa sai fare|cosa puoi fare|help|non capisco)\b/);
+    add('yes', /^(si|ok|okay|va bene|certo|dai|perfetto|vai|andiamo|yes)\b/);
+    add('no', /^(no|nah|non ora|dopo|lascia stare|lascia perdere)\b/);
+    add('usual', /\b(come (al )?solito|il solito|normale)\b/);
+    return out;
+  }
+
   const api = {defaults, clean, isDay, addD, dow, diff, estimate, room, newTest, rebase, removeTest, totals, log, undo, setFin, extend, stamp,
-    plan, rewards, encode, decode, importTests};
+    plan, rewards, encode, decode, importTests, setWeek, setDay, setHomework, dayInfo, parse};
   root.STUDIO_ENGINE = api;
   if (typeof module === 'object' && module.exports) module.exports = api;
 })(typeof self !== 'undefined' ? self : globalThis);

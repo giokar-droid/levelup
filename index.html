@@ -278,14 +278,14 @@ ol{padding-left:1.3em; margin:.4em 0} ol li{margin:.25em 0; line-height:1.35}
 <div id="toasts" aria-live="polite"></div>
 <canvas id="fx" aria-hidden="true"></canvas>
 <!-- ?v= è la versione (const VERSION): la tiene allineata pubblica.py; sw.js serve questi tre file dalla cache solo all'indirizzo esatto -->
-<script src="studio-engine.js?v=3.1"></script>
-<script src="studio-data.js?v=3.1"></script>
-<script src="studio-ui.js?v=3.1"></script>
-<script src="percorso-data.js?v=3.1"></script>
-<script src="percorso-ui.js?v=3.1"></script>
+<script src="studio-engine.js?v=4.0"></script>
+<script src="studio-data.js?v=4.0"></script>
+<script src="studio-ui.js?v=4.0"></script>
+<script src="percorso-data.js?v=4.0"></script>
+<script src="percorso-ui.js?v=4.0"></script>
 <script>
 'use strict';
-const VERSION = '3.1';
+const VERSION = '4.0';
 const KEY = 'levelup.v1';
 const P = new URLSearchParams(location.search);
 const DEV = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
@@ -679,7 +679,7 @@ function norm(){
   S.v = 1; S.profile ||= null; S.ev ||= []; S.eq ||= {}; S.set ||= {sound:true}; S.ui ||= {}; S.ui.tab ||= 'home'; S.ui.seen ||= 0;
   if (S.profile && typeof cleanState === 'function') {
     // anche i dati già salvati passano dalla stessa pulizia dell'import; i flag locali dell'interfaccia restano
-    try { const ui = S.ui; S = cleanState(S); for (const k of ['noInstall','safariOk','goldiNo','readNo','hNo','timer','tab','stTimer','stOn']) if (ui[k] !== undefined) S.ui[k] = ui[k]; } catch(e) {}
+    try { const ui = S.ui; S = cleanState(S); for (const k of ['noInstall','safariOk','goldiNo','readNo','hNo','timer','tab','stTimer','stOn','stHome']) if (ui[k] !== undefined) S.ui[k] = ui[k]; } catch(e) {}
   }
   // Studio: lo stato nasce dal suo motore; se il motore non c'è, S.st resta com'è (anche assente)
   if (!stPlain(S.st)) { try { const en = stEngine(); if (en) { const d = en.defaults(); if (stPlain(d)) S.st = d; } } catch(e) {} }

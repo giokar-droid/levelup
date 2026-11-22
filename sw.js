@@ -1,7 +1,7 @@
 // Level Up: funziona anche offline. pubblica.py alza la versione della cache a ogni pubblicazione
 // e tiene i ?v= qui sotto uguali a const VERSION di index.html (gli stessi indirizzi degli <script src> di Studio e Percorso).
-const C = 'levelup-v8';
-const SHELL = ['./', './index.html', './studio-engine.js?v=3.1', './studio-data.js?v=3.1', './studio-ui.js?v=3.1', './percorso-data.js?v=3.1', './percorso-ui.js?v=3.1', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
+const C = 'levelup-v9';
+const SHELL = ['./', './index.html', './studio-engine.js?v=4.0', './studio-data.js?v=4.0', './studio-ui.js?v=4.0', './percorso-data.js?v=4.0', './percorso-ui.js?v=4.0', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(C).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 // Cancella solo le cache vecchie di Level Up: l'origine è condivisa con altri tool.
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k.startsWith('levelup-') && k !== C).map(k => caches.delete(k)))).then(() => self.clients.claim())); });

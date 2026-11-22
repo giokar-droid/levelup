@@ -20,7 +20,7 @@
   }
 
   /* ---------- stato di navigazione (solo in memoria) ---------- */
-  let nav = {scr: 'home'};                       // home | intro | new | test | tips | cfg | hist | import
+  let nav = {scr: 'home'};                       // home (Oggi) | full (tutto il piano) | intro | new | test | tips | cfg | hist | import | week | cal | chat
   let D = null;                                  // bozza di «nuova verifica» (o della modifica)
   let L = {i: 0, skips: 0, walk: -1, walked: false, days: null, cap: 90, again: false};   // le 3 lezioni
   let M = null;                                  // quello che sta per segnare («Cosa hai fatto davvero?»)
@@ -49,7 +49,8 @@
     review: ['🔁 Ripasso', 'blue'], today: ['📝 È oggi', 'gold'], wait: ['⏳ Manca la nota', 'dim'], done: ['📗 Fatta', 'dim'],
   };
   const FEEL = [[1, '😰', 'Panico'], [2, '😕', 'Teso'], [3, '😐', 'Normale'], [4, '🙂', 'Calmo'], [5, '😎', 'Sicuro']];
-  const SCREENS = ['home', 'intro', 'new', 'test', 'tips', 'cfg', 'hist', 'import'];
+  const SCREENS = ['home', 'today', 'full', 'intro', 'new', 'test', 'tips', 'cfg', 'hist', 'import', 'week', 'cal', 'chat'];
+  const classic = () => !!S.ui && S.ui.stHome === 'full';      // pagina iniziale «Tutto il piano» (a scelta in Impostazioni)
 
   const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
   const pad2 = n => String(n).padStart(2, '0');
@@ -111,6 +112,8 @@
 
   // un blocco (del piano, di un argomento o del timer) con tutto quello che serve per mostrarlo
   function blockInfo(b) {
+    if (b && b.k === 'hw') return {t: null, a: null, boss: {e: '✏️', n: 'i compiti'}, sub: {e: '✏️', n: 'Compiti'}, e: '✏️', title: 'Compiti', what: `Compiti · ${fMin(b.min)}`,
+      x: 'Uno alla volta, dal più difficile. Quando hai finito, segna quanto ci hai messo.'};
     const t = findT(b.tid); if (!t) return null;
     const a = b.aid ? (t.topics || []).find(x => x.id === b.aid) || null : null, boss = DA.bossFor(t), sub = subjOf(t.subj);
     if (b.k === 'rev') {
@@ -275,7 +278,8 @@
         const tests = only ? x.tests.filter(id => id === tid) : hid ? x.tests.filter(id => !hid.has(id)) : x.tests;
         if (tests.length) { cls = 'test'; mid = bossOn.get(d) || '📝'; say += ': verifica'; }
         else if (x.off) { cls = 'off'; mid = '🏖️'; say += ': giorno libero'; tap = true; }
-        else if (!x.study) { cls = 'cush'; mid = '☂️'; say += ': cuscinetto'; tap = true; }
+        else if (x.busy) { cls = 'off'; mid = '😴'; say += ': niente studio'; tap = true; }
+        else if (x.on === false || (x.on === undefined && !x.study)) { cls = 'cush'; mid = '☂️'; say += ': cuscinetto'; tap = true; }
         else if (q > 0) {
           const rev = items.length > 0 && items.every(it => it.phase === 'review'), rush = items.some(it => it.phase === 'rush') || (!only && x.over > 0);
           cls = (rush ? 'rush' : rev ? 'rev' : 'stu') + ' l' + clamp(Math.ceil(4 * q / cap), 1, 4); mid = q + '′'; say += `: ${fMin(q)}${rev ? ' di ripasso' : ''}`; tap = true;
@@ -290,14 +294,15 @@
   const mapLegend = () => `<div class="legend st-leg"><span><i class="s"></i>studio</span><span><i class="r"></i>ripasso</span><span>☂️ cuscinetto</span><span>🏖️ libero</span><span>📝 verifica</span></div>`;
   function menuHTML(withNew) {
     return `${withNew ? `<button class="btn big" data-act="st-new">＋ Nuova verifica</button>` : ''}
-      <div class="st-grid2"><button class="btn ghost" data-act="st-go" data-scr="import">📥 Ho un codice</button><button class="btn ghost" data-act="st-go" data-scr="tips">📘 Come si studia</button><button class="btn ghost" data-act="st-go" data-scr="cfg">⚙️ Giorni e tetto</button><button class="btn ghost" data-act="st-go" data-scr="hist">📜 Storico e note</button></div>`;
+      <div class="st-grid2"><button class="btn ghost" data-act="st-go" data-scr="import">📥 Ho un codice</button><button class="btn ghost" data-act="st-go" data-scr="tips">📘 Come si studia</button><button class="btn ghost" data-act="st-go" data-scr="cfg">⚙️ Impostazioni</button><button class="btn ghost" data-act="st-go" data-scr="hist">📜 Storico e note</button></div>`;
   }
   function vHome(c, live) {
     const st = S.st, T = today(), y = yest();
     if (live && !y) { try { if (EN.stamp(st, T)) save(); } catch (e) {} }
     const p = planOf(st, T), r = rew(c, T), late = y ? st.tests.filter(t => bornAfter(t, T)) : [];
     const act = p.tests.filter(s => ACTIVE[s.status]), wait = p.tests.filter(s => s.status === 'wait'), now = p.tests.filter(s => s.status === 'today');
-    let out = topbar(c);
+    let out = topbar(c) + (nav.scr === 'full' && !y ? backHTML('Oggi') + '<h2>📊 Tutto il piano</h2>' : '')
+      + (nav.scr === 'home' && classic() && !y && st.tests.length ? `<button class="link" data-act="st-go" data-scr="today">☀️ Oggi, una cosa alla volta</button>` : '');
     if (st.tests.length === late.length) {
       out += sayHTML(c, y ? `Stai segnando ieri, ${pname()}. Ieri qui non c'era ancora nessuna verifica.` : `Nessuna verifica in arrivo, ${pname()}? Quando ne spunta una mettila qui: ai conti penso io.`);
       if (y) return out;
@@ -317,7 +322,7 @@
     }
     const going = act.filter(s => s.status !== 'today');
     if (going.length) out += todayCard(p, r, T);
-    if (p.overload > 0 && !y) out += `<div class="banner small"><b>⚠️ Non ci sta tutto.</b> ${fMin(p.overload)} restano fuori dal tetto di ${fMin(st.cfg.cap)} al giorno. Il piano non li nasconde: o alzi il tetto, o aggiungi un giorno, o togli qualcosa.<div class="btns"><button class="btn" data-act="st-go" data-scr="cfg">⚙️ Giorni e tetto</button></div></div>`;
+    if (p.overload > 0 && !y) out += `<div class="banner small"><b>⚠️ Non ci sta tutto.</b> ${fMin(p.overload)} restano fuori dal tempo che hai. Il piano non li nasconde: o dai più tempo a qualche giorno, o togli qualcosa.<div class="btns"><button class="btn" data-act="st-go" data-scr="week">⏱️ La mia settimana</button></div></div>`;
     if (going.length) {
       out += `<h3>I boss</h3>${going.map(bossCard).join('')}`;
       out += streakCard(p, r, T);
@@ -469,12 +474,28 @@
   function vNew(c) {
     if (!D) D = newDraft();
     const T = today(), d = D, sub = d.subj ? subjOf(d.subj) : null;
-    const PCT = {subj: 6, date: 22, tn: 36, tk: 44, tc: 52, tt: 60, te: 68, hub: 78, sheet: 90, sum: 100};
+    const PCT = {subj: 6, date: 22, tn: 36, tk: 44, tc: 52, tt: 60, te: 68, hub: 78, sheet: 90, sum: 100, qdate: 40, qsize: 75};
     const next = (label, okKey, dis) => `<button class="btn big" id="st-next" data-act="st-wz-next" ${okKey ? `data-stok="${okKey}"` : ''} ${dis ? 'disabled' : ''}>${label || 'Avanti ▶'}</button>`;
     const big = (act, v, on, title, small) => `<button class="chip ${on ? 'on' : ''}" data-act="${act}" data-v="${v}" aria-pressed="${!!on}"><span class="grow">${title}${small ? `<small class="st-sm">${small}</small>` : ''}</span></button>`;
     const tn = esc(d.t.n.trim() || `Argomento ${d.ti >= 0 ? d.ti + 1 : d.topics.length + 1}`);
     let q = '', body = '', foot = '';
     switch (d.step) {
+      case 'qdate': {
+        // 4.0 · verifica veloce: un tocco sul giorno
+        q = 'Quando è?';
+        const ds = []; for (let n = 1; n <= 14; n++) ds.push(EN.addD(T, n));
+        body = `<div class="st-qd">${ds.map(k => `<button class="chip ${d.date === k ? 'on' : ''}" data-act="st-q-date" data-v="${k}" aria-pressed="${d.date === k}"><b>${WD[EN.dow(k)]} ${+k.slice(8, 10)}</b><small>${EN.diff(T, k) === 1 ? 'domani' : MO[+k.slice(5, 7) - 1]}</small></button>`).join('')}</div>
+          <h3>Più avanti?</h3><input class="txt st-date" type="date" id="st-date" data-stf="date" min="${EN.addD(T, 1)}" max="${EN.addD(T, 400)}" value="${esc(d.date)}" aria-label="Data della verifica">
+          <div class="st-live" data-stl="date">${LIVE.date()}</div>`;
+        foot = next('Avanti ▶', 'date', !OKF.date());
+        break;
+      }
+      case 'qsize':
+        q = 'Quanto è grossa?';
+        body = `<div class="chips col">${SIZES.map(([k, e, n, x]) => big('st-q-size', k, false, `${e} ${n}`, x)).join('')}</div>
+          <p class="small dim">Non serve essere precisi: dopo i primi blocchi il piano si regola sul tuo tempo vero.</p>
+          <button class="link" data-act="st-q-detail">Voglio dividerla per argomenti</button>`;
+        break;
       case 'date': {
         q = 'Quando è?';
         const quick = [7, 14, 21].map(n => { const k = EN.addD(T, n); return `<button class="chip ${d.date === k ? 'on' : ''}" data-act="st-wz-date" data-v="${k}">${n === 7 ? 'Fra 1 settimana' : `Fra ${n / 7} settimane`}</button>`; }).join('');
@@ -524,6 +545,7 @@
       default:
         d.step = 'subj';
         q = d.id ? 'Che materia è?' : `Che verifica arriva, ${pname()}?`;
+        if (d.quick && EN.isDay(d.date)) q += ` <span class="small muted">(${fDay(d.date)})</span>`;
         body = `<div class="st-subj">${DA.SUBJECTS.map(s => `<button class="chip ${d.subj === s.k ? 'on' : ''}" data-act="st-wz-subj" data-v="${s.k}" aria-pressed="${d.subj === s.k}">${s.e} ${esc(s.n)}</button>`).join('')}</div>`;
     }
     return `<div class="wz-top"><button class="wz-back" data-act="st-wz-back" aria-label="Indietro">←</button><div class="bar"><i style="width:${PCT[d.step] || 6}%"></i></div><button class="iconbtn" data-act="st-wz-quit" aria-label="Chiudi">✕</button></div>
@@ -536,7 +558,7 @@
     if (D.ti >= 0 && D.topics[D.ti]) D.topics[D.ti] = a; else if (D.topics.length < 12) D.topics.push(a);
     D.t = newTopic(); D.ti = -1;
   }
-  const WZ_BACK = {date: 'subj', tk: 'tn', tc: 'tk', tt: 'tc', hub: 'date', sheet: 'hub', sum: 'sheet'};
+  const WZ_BACK = {date: 'subj', tk: 'tn', tc: 'tk', tt: 'tc', hub: 'date', sheet: 'hub', sum: 'sheet', qdate: 'subj', qsize: 'qdate'};
 
   /* ---------- scheda della verifica ---------- */
   function statusText(s, cfg) {
@@ -658,6 +680,16 @@
   function vCfg(c) {
     const T = today(), cfg = S.st.cfg, on = cfg.days.filter(Boolean).length;
     const offs = cfg.off.filter(d => d >= T);
+    if (hasWeek()) return `${topbar(c)}${backHTML()}<h2>⚙️ Impostazioni dello studio</h2>
+      <div class="card"><b>⏱️ La mia settimana</b><p class="small muted">${S.st.cfg.wk.map((v, i) => `${WD[i]} ${v ? fS(v) : '☂️'}`).join(' · ')}</p><button class="btn ghost" data-act="st-go" data-scr="week">Cambia la settimana</button></div>
+      <div class="card"><b>Durata di un blocco</b><p class="small muted">Un blocco è una tirata sola, poi 5 minuti di pausa vera.</p><div class="chips st-ctr">${[15, 20, 25, 30, 45].map(v => `<button class="chip ${cfg.block === v ? 'on' : ''}" data-act="st-cfg-set" data-k="block" data-v="${v}">${v}′</button>`).join('')}</div></div>
+      <div class="card"><b>Giorni di solo ripasso prima della verifica</b><p class="small muted">Di serie 2: finisci prima, arrivi tranquillo.</p><div class="chips st-ctr">${[0, 1, 2, 3].map(v => `<button class="chip ${cfg.buffer === v ? 'on' : ''}" data-act="st-cfg-set" data-k="buffer" data-v="${v}">${v}</button>`).join('')}</div></div>
+      <div class="card"><b>🏖️ Giorni liberi</b><p class="small muted">Vacanze, gare, gite: il piano li salta. Un giorno solo lo segni anche dal Calendario.</p>
+        ${offs.length ? `<div class="chips">${offs.slice(0, 40).map(d => `<button class="chip" data-act="st-off" data-d="${d}" aria-label="Togli ${fDay(d)}">${fDay(d)} ✕</button>`).join('')}</div>` : '<div class="small dim">Nessun giorno libero segnato.</div>'}
+        <div class="st-two"><label class="small muted">Dal<input class="txt st-date" type="date" data-stf="offa" min="${T}" max="${EN.addD(T, 400)}" value="${esc(OFF.a)}"></label><label class="small muted">Al (se serve)<input class="txt st-date" type="date" data-stf="offb" min="${T}" max="${EN.addD(T, 400)}" value="${esc(OFF.b)}"></label></div>
+        <button class="btn ghost" data-act="st-off-add">＋ Segna liberi</button></div>
+      <div class="card"><b>🏠 Pagina iniziale dello Studio</b><p class="small muted">«Oggi» fa una domanda e dà una cosa alla volta. «Tutto il piano» mostra subito boss, serie e mappa.</p><div class="chips st-ctr"><button class="chip ${classic() ? '' : 'on'}" data-act="st-home-set" data-v="today">☀️ Oggi</button><button class="chip ${classic() ? 'on' : ''}" data-act="st-home-set" data-v="full">📊 Tutto il piano</button></div></div>
+      <button class="btn ghost" data-act="st-l-redo">🎬 Rivedi le 3 lezioni</button>`;
     return `${topbar(c)}${backHTML()}<h2>⚙️ Giorni e tetto</h2>
       <div class="card"><b>I giorni in cui studi</b><div class="st-days">${WD.map((d, i) => `<button class="chip ${cfg.days[i] ? 'on' : ''}" data-act="st-cfg-day" data-i="${i}" aria-pressed="${!!cfg.days[i]}">${d}</button>`).join('')}</div>
         <div class="st-note small">${on === 7 ? '⚠️ <b>7 su 7</b>: nessun cuscinetto. Se salti un giorno non hai dove recuperarlo.' : `☂️ ${plural(7 - on, 'giorno cuscinetto', 'giorni cuscinetto')} a settimana: riposo se sei in pari, recupero se hai saltato.`}</div></div>
@@ -668,6 +700,8 @@
         ${offs.length ? `<div class="chips">${offs.slice(0, 40).map(d => `<button class="chip" data-act="st-off" data-d="${d}" aria-label="Togli ${fDay(d)}">${fDay(d)} ✕</button>`).join('')}</div>${offs.length > 40 ? `<div class="small dim">… e altri ${offs.length - 40}</div>` : ''}` : '<div class="small dim">Nessun giorno libero segnato.</div>'}
         <div class="st-two"><label class="small muted">Dal<input class="txt st-date" type="date" data-stf="offa" min="${T}" max="${EN.addD(T, 400)}" value="${esc(OFF.a)}"></label><label class="small muted">Al (se serve)<input class="txt st-date" type="date" data-stf="offb" min="${T}" max="${EN.addD(T, 400)}" value="${esc(OFF.b)}"></label></div>
         <button class="btn ghost" data-act="st-off-add">＋ Segna liberi</button></div>
+      <div class="card"><b>⏱️ La mia settimana</b><p class="small muted">Quanto tempo hai al massimo ogni giorno, compiti compresi.</p><button class="btn ghost" data-act="st-go" data-scr="week">Metti la settimana</button></div>
+      <div class="card"><b>🏠 Pagina iniziale dello Studio</b><p class="small muted">«Oggi» fa una domanda e dà una cosa alla volta. «Tutto il piano» mostra subito boss, serie e mappa.</p><div class="chips st-ctr"><button class="chip ${classic() ? '' : 'on'}" data-act="st-home-set" data-v="today">☀️ Oggi</button><button class="chip ${classic() ? 'on' : ''}" data-act="st-home-set" data-v="full">📊 Tutto il piano</button></div></div>
       <button class="btn ghost" data-act="st-l-redo">🎬 Rivedi le 3 lezioni</button>`;
   }
   // le verifiche del codice, una per una, con il loro destino: l'anteprima e «Aggiungi» leggono la stessa lista,
@@ -705,6 +739,495 @@
     return out;
   }
 
+  /* =====================================================================================================
+     4.0 · Il piano del giorno (22.11.2026). Massimo apre Studio e trova una domanda sola («quanto tempo hai oggi?»),
+     poi una cosa sola da fare («Adesso»). Boss, serie e mappa stanno in «Tutto il piano»; le ore totali non si vedono qui.
+     Ogni giorno ha il suo massimo (La mia settimana), i compiti contano come studio, la domenica resta per recuperare.
+     Il coach è una chat senza AI e senza rete: capisce frasi semplici (STUDIO_ENGINE.parse) e conosce il piano.
+     ===================================================================================================== */
+  const TIMES = [15, 30, 45, 60, 90, 120, 180, 240];
+  const HWT = [0, 15, 30, 45, 60, 90];
+  const WKV = [0, 10, 15, 20, 30, 40, 45, 50, 60, 75, 90, 105, 120, 150, 180, 210, 240];
+  const HWV = [0, 10, 15, 20, 30, 40, 45, 60, 75, 90, 120];
+  const KID_WEEK = [90, 40, 60, 60, 60, 240, 0];        // la settimana detta da Giorgio e Massimo il 22.11.2026 (si cambia in un attimo)
+  const SIZE = {S: 60, M: 150, L: 300};
+  const SIZES = [['S', '🐣', 'Piccola', 'un capitolo, qualche pagina · circa 1 h'], ['M', '🐺', 'Media', 'qualche capitolo · circa 2 h 30'],
+    ['L', '🐉', 'Grossa', 'tanta roba · circa 5 h'], ['M', '🤷', 'Non lo so', 'metto media: dopo i primi blocchi si regola da solo']];
+  // per materia: quanta parte è teoria e quanti minuti un esercizio (le altre materie sono solo da studiare)
+  const EXS = {mate: [0.3, 6], ita: [0.6, 8], ted: [0.5, 5], fra: [0.5, 5], ing: [0.5, 5], lat: [0.5, 6], sci: [0.8, 6]};
+  const DOT = {ontrack: ['🟢', 'in pari'], ready: ['🏆', 'pronto'], behind: ['🟡', 'da recuperare'], rush: ['🔴', 'di corsa'], review: ['🔁', 'ripasso'],
+    today: ['📝', 'è oggi'], wait: ['📝', 'la nota?']};
+  const fT = m => m > 0 ? fMin(m) : 'niente';
+  const fS = m => m > 0 ? fMin(m).replace(' min', '′') : '0';
+  const dInfo = k => { try { return EN.dayInfo(S.st, k); } catch (e) { return null; } };
+  const hasWeek = () => !!S.st && !!S.st.cfg && Array.isArray(S.st.cfg.wk);
+  const checked = T => !!S.st.cfg.av && own(S.st.cfg.av, T);
+  const cap1 = s => s ? s[0].toUpperCase() + s.slice(1) : s;
+  const dayName = (d, T) => { const n = EN.diff(T || today(), d); return n === 0 ? 'oggi' : n === 1 ? 'domani' : `${WDF[EN.dow(d)]} ${+d.slice(8, 10)}`; };
+  const budE = c => { try { return typeof buddyEmoji === 'function' ? buddyEmoji(c ? c.stage : 0) : '🐲'; } catch (e) { return '🐲'; } };
+  let CK = null;                                  // la risposta di oggi in scrittura {d, av, hw}
+  let WK = null;                                  // la settimana in scrittura {wk: [7], hw: [7]}
+  let wkLater = false;                            // «Dopo» sulla settimana: per questa volta non la richiedo
+  let CH = [], CHIPS = [], CHQ = null, CHT = '';  // il coach: messaggi, pulsanti dell'ultimo, domanda in sospeso, testo che sta scrivendo
+  let HWM = 0;                                    // compiti fatti oggi, in scrittura
+  let CHO = '';                                   // il giorno in cui il coach ha già detto «non ci sta tutto» (lo dice una volta)
+  // la prima domenica-cuscinetto libera da oggi in poi (per «uso anche la domenica»), o null
+  function freeSunday(p) {
+    for (const x of p.days.slice(0, 14)) if (EN.dow(x.d) === 6 && !x.off && !x.busy && (x.on === false || (x.on === undefined && !x.study)) && !(x.q > 0)) return x.d;
+    return null;
+  }
+  function useSunday() {
+    const T = today(), d = freeSunday(planOf(S.st, T)); if (!d) return null;
+    mutate(() => { EN.setDay(S.st, T, d, {av: 60}); });
+    return d;
+  }
+
+  function quickTopics(subj, size) {
+    const tot = SIZE[size] || SIZE.M, ex = own(EXS, subj) ? EXS[subj] : null;
+    if (!ex) return [{n: 'Il programma', kind: 'th', conf: 2, thMin: tot, exN: 0, exMin: 0}];
+    const thMin = Math.max(15, Math.round(tot * ex[0] / 5) * 5), exMin = ex[1], exN = Math.max(2, Math.round((tot - thMin) / exMin));
+    return [{n: 'Il programma', kind: 'both', conf: 2, thMin, exN, exMin}];
+  }
+  const hwLeftOf = (t, i) => Math.max(0, (t.hw != null ? t.hw : (i && i.hw) || 0) - (t.hwDone || 0));
+
+  /* ---------- la domanda del giorno ---------- */
+  function ckDraft(T) {
+    if (!CK || CK.d !== T) { const i = dInfo(T) || {}; CK = {d: T, av: i.av != null ? i.av : (i.usual || 0), hw: i.hav != null ? i.hav : (i.usualHw || 0)}; }
+    return CK;
+  }
+  function ckPreview(T, k) {
+    try {
+      const st2 = EN.clean(JSON.parse(JSON.stringify(S.st))), hw = Math.min(k.hw, k.av);
+      EN.setDay(st2, T, T, {av: k.av, hw});
+      const p = EN.plan(st2, T), q = p.today.q, room = Math.max(0, k.av - hw);
+      if (k.av === 0) return 'Va bene: oggi riposo. Il lavoro non sparisce, lo sposto sui prossimi giorni.';
+      if (!p.tests.some(s => ACTIVE[s.status] && s.status !== 'today')) return hw ? `Oggi solo i compiti: ${fMin(hw)}.` : 'Nessuna verifica in arrivo: oggi niente da piano.';
+      let h = q > 0 ? `Oggi: ${hw ? `compiti ${fMin(hw)} + ` : ''}studio <b>${fMin(q)}</b>${q < room ? ` · ti avanzano ${fMin(room - q)}` : ''}.` : hw ? `Oggi: compiti ${fMin(hw)}. Per le verifiche niente.` : 'Oggi per le verifiche non serve niente.';
+      if (p.overload > 0) h += ` <span class="st-warnt">Con il tempo di questi giorni non ci sta tutto: te lo dico dopo.</span>`;
+      return h;
+    } catch (e) { return ''; }
+  }
+  function checkinHTML(c, T) {
+    const k = ckDraft(T), i = dInfo(T) || {};
+    const ts = [...new Set([...TIMES, k.av].filter(v => v > 0))].sort((a, b) => a - b);
+    const hs = [...new Set([...HWT, k.hw])].filter(v => v <= Math.max(k.av, 0) || v === 0).sort((a, b) => a - b);
+    const chip = (act, v, on, label, tag) => `<button class="chip ${on ? 'on' : ''}" data-act="${act}" data-v="${v}" aria-pressed="${on}">${label}${tag ? ` <span class="tag">${tag}</span>` : ''}</button>`;
+    return `${sayHTML(c, `Ciao ${pname()}! Una domanda sola: <b>quanto tempo hai oggi per studiare?</b> Compiti compresi.`)}
+      <div class="card st-ck"><div class="label">⏱️ Oggi ho</div><div class="chips">${ts.map(v => chip('st-ck-av', v, k.av === v, fS(v), v === i.usual ? 'di solito' : '')).join('')}${chip('st-ck-av', 0, k.av === 0, '😴 Oggi niente')}</div>
+      ${k.av > 0 ? `<div class="label" style="margin-top:14px">✏️ Di questi, compiti</div><div class="chips">${hs.map(v => chip('st-ck-hw', v, k.hw === v, v ? fS(v) : 'Nessuno', v && v === i.usualHw ? 'di solito' : '')).join('')}</div>` : ''}
+      <div class="st-note small">${ckPreview(T, k)}</div>
+      <button class="btn big gold" data-act="st-ck-ok">✅ Fatto: dimmi cosa fare</button></div>`;
+  }
+
+  /* ---------- Oggi: una cosa alla volta ---------- */
+  function nowItemHTML(x) {
+    if (x.hw) return `<div class="st-now"><div class="row"><span class="st-ne">✏️</span><div class="grow"><b>Compiti</b><div class="small muted">${fMin(x.min)} · prima quelli per domani</div></div></div>
+      <p class="small">Uno alla volta, dal più difficile. Il telefono dall'altra parte della stanza.</p>
+      <div class="st-grid2"><button class="btn ok" data-act="st-hw-play">▶ Inizia</button><button class="btn ghost" data-act="st-hw-done">✔ Già fatti</button></div></div>`;
+    const f = blockInfo(x.b); if (!f) return '';
+    return `<div class="st-now" data-boss="${esc(f.t.id)}"><div class="row"><span class="st-ne">${f.e}</span><div class="grow"><b>${esc(f.title)}</b><div class="small muted">${f.what}</div><div class="small dim">${f.sub.e} ${esc(tTitle(f.t))} · contro ${f.boss.e}</div></div></div>
+      <p class="small">${esc(f.x)}</p>
+      <div class="st-grid2"><button class="btn ok pulse" data-act="st-play" data-i="${x.j}">▶ Inizia</button><button class="btn ghost" data-act="st-hand" data-i="${x.j}">✔ Già fatto</button></div></div>`;
+  }
+  function laterRow(x) {
+    if (x.hw) return `<div class="st-blk"><span class="xe">✏️</span><span class="grow"><b>Compiti</b><small>${fMin(x.min)}</small></span><button class="st-ib go" data-act="st-hw-play" aria-label="Timer dei compiti">▶</button><button class="st-ib" data-act="st-hw-done" aria-label="Compiti già fatti">✔</button></div>`;
+    return blockRow(x.b, x.j, true, false);
+  }
+  function todayPlanHTML(c, p, r, T) {
+    const t = p.today, i = dInfo(T) || {}, hw = t.hw != null ? t.hw : (i.hw || 0), hwDone = t.hwDone || 0, hwLeft = Math.max(0, hw - hwDone);
+    BL = t.blocks.slice(0, 12);
+    const total = t.q + hw, done = t.done + hwDone;
+    let ring, head, sub;
+    if (t.full) { ring = ringHTML(1, '✓', 'fatto', 'full'); head = 'Giornata piena'; sub = `${fMin(done)} oggi. Il resto della giornata è tuo.`; }
+    else if (total <= 0) {
+      ring = ringHTML(0, i.busy ? '😴' : t.cushion ? '☂️' : '😌', '', 'soft');
+      head = i.busy ? 'Oggi riposo' : t.cushion ? `Recupero: ${fMin(t.cushion.min)}, se vuoi` : 'Oggi niente da fare';
+      sub = i.busy ? 'Hai detto che oggi non hai tempo: il piano ha spostato il lavoro.' : t.cushion ? 'Giorno cuscinetto: se vuoi rimetti in pari i conti. Nessun obbligo.' : 'Il piano oggi non chiede niente.';
+    } else {
+      const rm = ringMin(Math.max(0, total - done));
+      ring = ringHTML(done / total, rm[0], rm[1], '');
+      head = done > 0 ? `Ancora ${fMin(total - done)}` : `Oggi: ${fMin(total)}`;
+      sub = [hw ? `✏️ compiti ${fMin(hw)}` : '', t.q ? `📚 studio ${fMin(t.q)}` : ''].filter(Boolean).join(' + ') + (done > 0 ? ` · fatti ${fMin(done)}` : '');
+    }
+    let out = `<div class="card st-today"><div class="row">${ring}<div class="grow"><div class="label">Oggi · ${fDay(T)}</div><div class="st-hd">${head}</div><div class="small muted">${sub}</div></div></div>`;
+    if (i.max != null) out += `<button class="link st-chg" data-act="st-ck-redo">⏱️ Oggi hai ${fT(i.max)}${i.hw ? `, compiti ${fMin(i.hw)}` : ''} · cambia</button>`;
+    if (!t.full && p.days[0] && overWhy(p.days[0])) out += `<div class="st-note warn small">${overWhy(p.days[0]).trim()}</div>`;
+    const list = [];
+    if (!t.full) { if (hwLeft > 0) list.push({hw: 1, min: hwLeft}); BL.forEach((b, j) => list.push({b, j})); }
+    if (list.length) {
+      out += `<div class="label st-lab">▶ Adesso</div>${nowItemHTML(list[0])}`;
+      const rest = list.slice(1);
+      if (rest.length) out += `<div class="label st-lab">Poi</div><div class="st-blocks">${rest.slice(0, 4).map(laterRow).join('')}</div>${rest.length > 4 ? `<div class="small dim" style="margin-top:6px">… e altri ${rest.length - 4}, uno alla volta.</div>` : ''}`;
+    }
+    if (!t.full && t.q > 0 && t.skipCost != null) {
+      // con il massimo per giorno domani può non salire: allora il conto del salto va a ridosso della verifica, e si dice
+      const tom = p.days[1], late = q => q.tests.reduce((a, x) => a + (ACTIVE[x.status] ? (x.tight || 0) + (x.overload || 0) : 0), 0);
+      let extra = 0; try { extra = late(EN.plan(S.st, EN.addD(T, 1))) - late(p); } catch (e) {}
+      out += `<div class="st-note small">😬 Se salti oggi, domani sono <b>${fMin(t.skipCost)}</b>${tom && tom.q > 0 && tom.q < t.skipCost ? ` invece di ${fMin(tom.q)}` : ''}${extra >= 5 ? ` e <b>${fMin(extra)}</b> finiscono a ridosso della verifica` : ''}.</div>`;
+    }
+    if (!t.full && i.av != null && i.usual > 0 && i.av < i.usual && i.av > 0) out += `<div class="small dim" style="margin-top:8px">Oggi hai meno tempo del solito: quello che non ci sta l'ho spostato sui prossimi giorni.</div>`;
+    if (t.full) {
+      const more = p.tests.find(x => ACTIVE[x.status] && x.status !== 'today' && x.left > 0);
+      if (more) out += `<button class="btn ghost" data-act="st-open" data-id="${esc(more.id)}">➕ Faccio un pezzo in più</button>`;
+    } else if (list.length) out += `<div class="st-grid2"><button class="btn ghost" data-act="st-nowill">😮‍💨 Non ho voglia</button><button class="btn ghost" data-act="st-go" data-scr="chat">💬 Chiedi al coach</button></div>`;
+    if ((S.st.log || []).some(x => x.d === T)) out += `<button class="link" data-act="st-undo">Annulla l'ultima cosa segnata</button>`;
+    return out + `</div>`;
+  }
+  function upcomingHTML(p) {
+    const list = p.tests.filter(s => ACTIVE[s.status] || s.status === 'wait');
+    if (!list.length) return '';
+    return `<div class="card st-upc"><b>📅 Le tue verifiche</b>${list.slice(0, 8).map(s => {
+      const t = s.test, sub = subjOf(t.subj), b = DA.bossFor(t), live = ACTIVE[s.status] && s.status !== 'today';
+      const dt = s.overload > 0 && live ? ['🟠', 'non ci sta'] : s.tight > 0 && live && s.status !== 'rush' ? ['🟡', 'a ridosso'] : DOT[s.status] || DOT.ontrack;
+      return `<button class="st-urow" data-act="st-open" data-id="${esc(t.id)}"${s.status === 'wait' ? ' data-grade="1"' : ''} data-boss="${esc(t.id)}"><span class="xe">${b.e}</span><span class="grow"><b>${sub.e} ${esc(tTitle(t))}</b><small>${fDay(t.date)} · ${inDays(s.daysTo)}</small>${s.total > 0 && ACTIVE[s.status] ? hpHTML(s.left, s.total) : ''}</span><span class="st-dot">${dt[0]}<small>${dt[1]}</small></span></button>`;
+    }).join('')}${list.length > 8 ? `<div class="small dim">… e altre ${list.length - 8} in «Tutto il piano».</div>` : ''}</div>`;
+  }
+  function overloadHTML(p) {
+    const sun = freeSunday(p), late = p.tests.filter(s => s.overload > 0).map(s => `${subjOf(s.test.subj).e} ${esc(tTitle(s.test))}`).join(', ');
+    return `<div class="st-note warn small">⚠️ <b>Con il tempo che hai non ci sta tutto</b>${late ? ` (${late})` : ''}: mancano ${fMin(p.overload)}. Il piano non te li nasconde, li mette nei giorni subito prima della verifica. Si sistema dando un po' di tempo in più a qualche giorno, o parlandone con mamma o papà.
+      ${sun ? `<button class="btn gold" data-act="st-use-sun">☂️ Uso anche ${dayName(sun)}: 1 h</button>` : ''}
+      <div class="st-grid2"><button class="btn ghost" data-act="st-go" data-scr="cal">🗓️ Calendario</button><button class="btn ghost" data-act="st-go" data-scr="week">⏱️ La mia settimana</button></div></div>`;
+  }
+  function testDayCards(now, wait, T) {
+    let out = '';
+    for (const s of now) {
+      const b = DA.bossFor(s.test), sub = subjOf(s.test.subj), k = ((dayIx(T) % 2) + 2) % 2;
+      const tips = [DA.TESTDAY[k], DA.TESTDAY[2 + k], DA.TESTDAY[4 + k]].filter(Boolean);
+      out += `<div class="card st-td" data-boss="${esc(s.id)}"><div class="row"><div class="st-mon bob">${b.e}</div><div class="grow"><div class="label">Oggi · ${sub.e} ${esc(sub.n)}</div><b class="st-bn">In bocca al lupo, ${pname()}!</b><div class="small muted">${esc(tTitle(s.test))}${s.pct >= 80 ? ` · piano fatto al ${s.pct} %` : ''}</div></div></div>
+        <ol class="st-tips">${tips.map(x => `<li>${esc(x)}</li>`).join('')}</ol>
+        <button class="btn ghost" data-act="st-open" data-id="${esc(s.id)}" data-grade="1">L'ho già fatta: racconto com'è andata</button></div>`;
+    }
+    for (const s of wait) {
+      const b = DA.bossFor(s.test), sub = subjOf(s.test.subj);
+      out += `<div class="card st-wait"><div class="row"><div class="st-mon">${b.e}</div><div class="grow"><div class="label">${sub.e} ${esc(sub.n)} · ${fDay(s.test.date)}</div><b class="st-bn">Com'è andata?</b><div class="small muted">${esc(tTitle(s.test))}. Segna la nota quando arriva: +10 💎, qualunque sia.</div></div></div><button class="btn gold" data-act="st-open" data-id="${esc(s.id)}" data-grade="1">📝 Segna la nota</button></div>`;
+    }
+    return out;
+  }
+  function vToday(c, live) {
+    const st = S.st, T = today();
+    if (live) { try { if (EN.stamp(st, T)) save(); } catch (e) {} }
+    const p = planOf(st, T), r = rew(c, T), i = dInfo(T) || {};
+    const act = p.tests.filter(s => ACTIVE[s.status] && s.status !== 'today'), now = p.tests.filter(s => s.status === 'today'), wait = p.tests.filter(s => s.status === 'wait');
+    const hwOn = (i.hw || 0) > 0 || (p.today.hwDone || 0) > 0;
+    let out = topbar(c) + testDayCards(now, wait, T);
+    if (!checked(T) && (act.length || hwOn || Array.isArray(st.cfg.hwk))) out += checkinHTML(c, T);
+    else if (act.length || hwOn) {
+      out += sayHTML(c, lineFor(c, p, r, T));
+      out += todayPlanHTML(c, p, r, T);
+      if (p.overload > 0) out += overloadHTML(p);
+    } else if (!st.tests.length) {
+      out += sayHTML(c, `Nessuna verifica in arrivo, ${pname()}? Quando ne spunta una dimmela: ai conti penso io.`)
+        + `<div class="card center st-empty"><div class="big-emoji bob" style="font-size:84px">👾</div><h2>Ogni verifica è un boss</h2><p class="muted">Tre tocchi: materia, giorno, quanto è grossa. Io spalmo il lavoro sui giorni e ti dico cosa fare oggi.</p><button class="btn big pulse" data-act="st-quick">＋ Nuova verifica</button></div>`;
+    } else if (!now.length && !wait.length) out += `<div class="card center"><div class="big-emoji" style="font-size:72px">🏝️</div><h2>Nessun boss in vista</h2><p class="muted">Tutte le verifiche sono alle spalle. Quando ne arriva un'altra, dimmela.</p></div>`;
+    out += upcomingHTML(p);
+    out += `<div class="st-grid2"><button class="btn" data-act="st-quick">＋ Verifica</button><button class="btn ghost" data-act="st-go" data-scr="chat">💬 Coach</button><button class="btn ghost" data-act="st-go" data-scr="cal">🗓️ Calendario</button><button class="btn ghost" data-act="st-go" data-scr="week">⏱️ La mia settimana</button></div>
+      <button class="link" data-act="st-go" data-scr="${classic() ? 'home' : 'full'}">📊 Tutto il piano: boss, serie, mappa</button>`;
+    if (r.streak > 0) out += `<p class="small dim center">⚔️ Serie di studio: ${plural(r.streak, 'giorno pieno', 'giorni pieni')} di fila</p>`;
+    out += `<details class="card st-sec st-more"><summary>⋯ Altro: impostazioni, codice, consigli, storico</summary>${menuHTML(false)}</details>`;
+    return out;
+  }
+
+  /* ---------- La mia settimana ---------- */
+  function wkDraft() {
+    if (!WK) {
+      const cfg = S.st.cfg;
+      const wk = hasWeek() ? cfg.wk.slice() : isAdult() ? cfg.days.map(v => v ? cfg.cap : 0) : KID_WEEK.map((v, i) => cfg.days[i] || i === 6 ? v : 0);
+      WK = {wk, hw: Array.isArray(cfg.hwk) ? cfg.hwk.slice() : [0, 0, 0, 0, 0, 0, 0]};
+    }
+    return WK;
+  }
+  function vWeek(c) {
+    const w = wkDraft(), first = !hasWeek();
+    const rows = WDF.map((n, i) => `<div class="st-wrow ${w.wk[i] ? '' : 'cush'}"><div class="st-wn"><b>${cap1(n)}</b><small>${w.wk[i] ? 'al massimo' : '☂️ cuscinetto'}</small></div>${stepper('wk' + i, fT(w.wk[i]))}
+      ${w.wk[i] ? `<div class="st-wh"><span class="small muted">✏️ compiti di solito</span>${stepper('hk' + i, fT(w.hw[i]))}</div>` : ''}</div>`).join('');
+    return `${topbar(c)}${first ? '' : backHTML()}<h2>⏱️ La mia settimana</h2>
+      ${sayHTML(c, first ? `Novità, ${pname()}! Dimmi quanto tempo hai <b>al massimo</b> ogni giorno per studiare, compiti compresi. Il piano non lo supera mai: solo se una verifica è vicina e non ci sta tutto, te lo dico prima.` : 'Il massimo di ogni giorno, compiti compresi. Il piano non lo supera.')}
+      <div class="card st-week">${rows}<div class="st-tot" data-stl="wktot">${LIVE.wktot()}</div></div>
+      ${w.wk[6] ? '<div class="st-note warn small">⚠️ Senza la domenica libera, se salti un giorno non hai dove recuperarlo.</div>' : '<div class="st-note small">☂️ La domenica resta vuota: se salti un giorno, la recuperi lì.</div>'}
+      <p class="small dim">Un giorno diverso dal solito (gara, gita, più compiti)? Lo cambi dal Calendario, o lo dici al coach.</p>
+      <button class="btn big gold" data-act="st-wk-save">💾 ${first ? 'Va bene così' : 'Salva la settimana'}</button>
+      ${first ? '<button class="link" data-act="st-wk-later">Dopo</button>' : ''}`;
+  }
+
+  /* ---------- Calendario ---------- */
+  // le materie di un giorno: compatte per il calendario, per esteso (long) per il coach
+  function calItems(x, long) {
+    const by = new Map();
+    for (const it of x.items) { const o = by.get(it.tid) || {m: 0, rev: true}; o.m += it.min; if (it.phase !== 'review') o.rev = false; by.set(it.tid, o); }
+    const out = [];
+    if (long && x.hw > 0) out.push(`✏️ compiti ${fMin(x.hw)}`);
+    for (const [tid, o] of by) { const t = findT(tid); if (t) out.push(long ? `${subjOf(t.subj).e} ${esc(tTitle(t))}${o.rev ? ' (ripasso)' : ''} ${fMin(o.m)}` : `${subjOf(t.subj).e} ${o.rev ? '🔁' : ''}${fS(o.m)}`); }
+    if (!long && x.hw > 0) out.push(`✏️ ${fS(x.hw)}`);
+    return out;
+  }
+  // oltre il massimo del giorno succede solo se una verifica non ci sta: si dice quale
+  function overWhy(x) {
+    const tot = x.q + (x.hw || 0); if (x.max == null || tot <= x.max) return '';
+    const p = planOf(S.st, today()), s = p.tests.find(y => y.overload > 0 && x.items.some(it => it.tid === y.id));
+    return ` ⚠️ È ${fMin(tot - x.max)} oltre il tuo massimo${s ? `: «${esc(tTitle(s.test))}» è vicina e non ci sta tutta` : ''}.`;
+  }
+  function vCal(c) {
+    const T = today(), p = planOf(S.st, T), r = rew(c, T), mon = EN.addD(T, -EN.dow(T)), byD = new Map(p.days.map(d => [d.d, d]));
+    let out = `${topbar(c)}${backHTML()}<h2>🗓️ Calendario</h2>${sayHTML(c, 'Ogni giorno: le verifiche, cosa studiare e quanto. Tocca un giorno per cambiarlo.')}`;
+    for (let w = 0; w < 4; w++) {
+      const ws = EN.addD(mon, 7 * w); let wsum = 0, rows = '';
+      for (let k = 0; k < 7; k++) {
+        const d = EN.addD(ws, k), x = byD.get(d), h = r.byDay.get(d), dd = `<span class="st-cd">${WD[k]}<b>${+d.slice(8, 10)}</b></span>`;
+        const tests = (S.st.tests || []).filter(t => t.date === d).map(t => `<span class="t">📝 ${subjOf(t.subj).e} ${esc(tTitle(t))}</span>`);
+        if (d < T) {
+          if (h) wsum += h.min;
+          rows += `<div class="st-cr past">${dd}<span class="st-ci">${tests.join(' ')}${h && h.min ? ` ${fS(h.min)} fatti` : ''}</span><span class="st-cm">${h ? (h.full ? '✅' : h.q > 0 ? '✗' : '') : ''}</span></div>`;
+          continue;
+        }
+        if (!x) continue;
+        const its = calItems(x), tot = x.q + (x.hw || 0); wsum += tot;
+        const cush = x.on === false ? !x.off && !x.busy : !x.study && !x.off;
+        const state = x.off ? '🏖️ libero' : x.busy ? '😴 niente' : cush && !tot ? '☂️ cuscinetto' : '';
+        const right = state ? `<span class="small">${state}</span>` : tot ? `${fS(tot)}${x.max != null ? `<small>su ${fS(x.max)}</small>` : ''}` : '<small>—</small>';
+        rows += `<button class="st-cr ${d === T ? 'now' : ''} ${x.over > 0 ? 'over' : ''}" data-act="st-cal-day" data-d="${d}" aria-label="${fDay(d)}: tocca per cambiarlo">${dd}<span class="st-ci">${[...tests, ...its].join(' · ') || '<span class="dim">—</span>'}</span><span class="st-cm">${right}</span></button>`;
+      }
+      if (rows) out += `<div class="card st-calw"><div class="st-calh"><b>${w === 0 ? 'Questa settimana' : w === 1 ? 'Settimana prossima' : `Dal ${fDay(ws)}`}</b><span class="small muted">${wsum ? fMin(wsum) + ' di studio' : ''}</span></div>${rows}</div>`;
+    }
+    out += `<div class="legend st-leg"><span>✏️ compiti</span><span>🔁 ripasso</span><span>📝 verifica</span><span>☂️ cuscinetto</span><span>🏖️ libero</span></div>
+      <div class="st-grid2"><button class="btn" data-act="st-quick">＋ Verifica</button><button class="btn ghost" data-act="st-go" data-scr="week">⏱️ La mia settimana</button></div>`;
+    return out;
+  }
+  function dayHTML(d) {
+    const T = today(), i = dInfo(d) || {}, p = planOf(S.st, T), x = p.days.find(y => y.d === d) || {items: [], q: 0};
+    const tests = (S.st.tests || []).filter(t => t.date === d && t.grade == null);
+    const chip = (act, v, on, label) => `<button class="chip ${on ? 'on' : ''}" data-act="${act}" data-d="${d}" data-v="${v}" aria-pressed="${on}">${label}</button>`;
+    const its = calItems(x);
+    return `<div class="mc left"><h2>${cap1(WDF[EN.dow(d)])} ${+d.slice(8, 10)} ${MO[+d.slice(5, 7) - 1]}</h2>
+      ${tests.length ? `<p class="small">📝 Verifica: <b>${tests.map(t => esc(tTitle(t))).join(', ')}</b></p>` : ''}
+      <p class="small muted">${x.q || x.hw ? `In piano: ${its.join(' · ')} = <b>${fMin(x.q + (x.hw || 0))}</b>` : i.off ? 'Giorno libero: il piano lo salta.' : 'In piano: niente.'}</p>
+      ${i.off ? '' : `<h3>⏱️ Quel giorno hai</h3><div class="chips">${[0, ...TIMES].map(v => chip('st-day-av', v, i.av != null && i.av === v, v ? fS(v) : '😴 Niente')).join('')}</div>
+      <div class="small dim" style="margin-top:6px">Di solito: ${fT(i.usual)}.${i.av != null ? ` <button class="link st-inl" data-act="st-day-av" data-d="${d}" data-v="">Come di solito</button>` : ''}</div>
+      <h3>✏️ Compiti quel giorno</h3><div class="chips">${HWT.map(v => chip('st-day-hw', v, i.hav != null ? i.hav === v : false, v ? fS(v) : 'Nessuno')).join('')}</div>
+      <div class="small dim" style="margin-top:6px">Di solito: ${fT(i.usualHw)}.${i.hav != null ? ` <button class="link st-inl" data-act="st-day-hw" data-d="${d}" data-v="">Come di solito</button>` : ''}</div>`}
+      ${tests.length ? '' : `<button class="btn ghost" data-act="st-day-off" data-d="${d}">${i.off ? '↩️ Non è più un giorno libero' : '🏖️ Giorno libero (vacanza, gara, gita)'}</button>`}
+      ${d > T ? `<button class="btn ghost" data-act="st-quick" data-d="${d}">＋ Verifica in questo giorno</button>` : ''}
+      <button class="btn" data-act="close">Fatto</button></div>`;
+  }
+  function refreshDay(d) { const m = $id('modal'); if (m && !m.hidden && m.querySelector('[data-act="st-day-av"],[data-act="st-day-off"]')) m.innerHTML = dayHTML(d); render(); }
+
+  /* ---------- i compiti ---------- */
+  function hwModal() {
+    const T = today(), i = dInfo(T) || {};
+    HWM = i.hwDone > 0 ? i.hwDone : (i.hw || 30);
+    showModal(`<div class="mc"><div class="big-emoji pop" style="font-size:64px">✏️</div><h2>Compiti fatti oggi</h2><p class="small muted">Quanti minuti, più o meno? Contano come studio.</p>
+      ${stepper('hwm', fMin(HWM))}<button class="btn ok big" data-act="st-hw-ok">✔ Segna</button>
+      ${i.hwDone > 0 ? '<p class="small dim">Hai sbagliato? Metti il totale giusto: anche zero.</p>' : ''}<button class="link" data-act="close">Annulla</button></div>`);
+  }
+  function hwHit(total, d, add) {
+    const T0 = today(), T = EN.isDay(d) && d < T0 && EN.diff(d, T0) <= 60 ? d : T0;
+    if (S.ui.stTimer && S.ui.stTimer.k === 'hw') delete S.ui.stTimer;
+    const p0 = EN.plan(S.st, T0), was = (dInfo(T) || {}).hwDone || 0, v = clamp(Math.round(add ? was + total : total), 0, 600);
+    mutate(() => { EN.setHomework(S.st, T, v); });
+    const p1 = EN.plan(S.st, T0);
+    if (save() === false) return toast('⚠️ Non riesco a salvare: copia la partita da Io → Salva partita.');
+    if (!p0.today.full && p1.today.full) { confetti(110, ['✏️', '💎', '✨']); toast('✅ Giornata piena: +5 XP e +5 💎'); }
+    else if (v > was) { tone(SND.done); toast(`✏️ Compiti: ${fMin(v)} oggi. Contano come studio.`); }
+    else toast(v ? `Compiti: ${fMin(v)}.` : 'Compiti tolti.');
+  }
+  function hwPlay() {
+    if (yest()) return toast('Niente timer mentre segni ieri.');
+    if (S.ui.stTimer && validTimer(S.ui.stTimer)) { openTimer(); return; }
+    const T = today(), p = planOf(S.st, T), left = hwLeftOf(p.today, dInfo(T)) || 25;
+    S.ui.stTimer = {tid: '', aid: null, k: 'hw', n: 0, min: clamp(Math.min(left, 45), 5, 240), start: Date.now(), five: 0, rev: null, d: T};
+    tmUnsaved = save() === false;
+    tone(SND.tap); openTimer(); wakeOn();
+  }
+  function startFirst() {
+    const T = today(), p = planOf(S.st, T), t = p.today;
+    if (hwLeftOf(t, dInfo(T)) > 0 && !t.full) return hwPlay();
+    const b = t.blocks[0]; if (b) { BL = t.blocks.slice(0, 12); startTimer(b, false); } else toast('Per oggi non c\'è niente in piano. 😌');
+  }
+
+  /* ---------- il coach ---------- */
+  const timeChips = () => [...TIMES.slice(0, 6).map(v => ({l: fS(v), k: 'time', v})), {l: '😴 Niente', k: 'time', v: 0}];
+  const mainChips = () => [{l: '▶ Cosa faccio adesso?', k: 'say', v: 'cosa faccio adesso?'}, {l: '⏱️ Il mio tempo oggi', k: 'ask-time'},
+    {l: '📅 E domani?', k: 'say', v: 'domani'}, {l: '＋ Ho una verifica', k: 'say', v: 'ho una verifica'}, {l: '😮‍💨 Non ho voglia', k: 'say', v: 'non ho voglia'}];
+  function bot(h, chips) { CH.push({me: 0, h, chips: chips || []}); if (CH.length > 80) CH.splice(0, CH.length - 80); }
+  function me(text) { CH.push({me: 1, h: esc(String(text).slice(0, 300))}); }
+  function askTime(T) { CHQ = {k: 'time', d: T}; bot('Quanto tempo hai oggi per studiare? Compiti compresi. Tocca o scrivi (tipo «45 minuti»).', timeChips()); }
+  function chatHello() {
+    const T = today();
+    if (yest()) return bot(`Stai segnando ieri, ${pname()}: torna a oggi e poi chiacchieriamo.`, []);
+    if (!checked(T) && (S.st.tests || []).some(t => t.grade == null && t.date > T)) { bot(`Ciao ${pname()}! 👋`); return askTime(T); }
+    const p = planOf(S.st, T), t = p.today, left = t.left + hwLeftOf(t, dInfo(T));
+    bot(`Ciao ${pname()}! 👋 ${t.full ? 'Oggi la giornata è già piena ✅' : left > 0 ? `Oggi ti restano <b>${fMin(left)}</b>.` : 'Oggi il piano non chiede niente.'} Cosa ti serve?`, mainChips());
+  }
+  function todaySay(pre) {
+    const T = today(), p = planOf(S.st, T), t = p.today, i = dInfo(T) || {}, hwLeft = hwLeftOf(t, i);
+    const bl = t.blocks.slice(0, 4).map(b => { const f = blockInfo(b); return f ? `${f.e} ${esc(f.title)} ${fS(b.min)}` : ''; }).filter(Boolean);
+    let h = pre ? pre + ' ' : '';
+    if (t.full) h += '✅ Oggi la giornata è già piena. Il resto del tempo è tuo.';
+    else if (!hwLeft && !t.blocks.length) h += i.busy ? 'Oggi niente studio.' : 'Oggi per le verifiche non serve niente. 😌';
+    else h += `Oggi ${t.done || t.hwDone ? 'ti restano' : 'fai'}: ${[hwLeft ? `✏️ compiti ${fS(hwLeft)}` : '', ...bl].filter(Boolean).join(' · ')}${t.blocks.length > 4 ? ' · …' : ''}. Un pezzo alla volta.`;
+    if (!t.full && t.skipCost != null) { const tom = p.days[1]; h += ` <span class="dim">Se salti oggi, domani sono ${fMin(t.skipCost)}${tom && tom.q > 0 && tom.q < t.skipCost ? ` invece di ${fMin(tom.q)}` : ''}.</span>`; }
+    const warn = p.overload > 0 && CHO !== T;
+    if (warn) { CHO = T; h += ' Una cosa onesta: con il tempo di questi giorni non ci sta tutto. Si sistema, vuoi vedere come?'; }
+    const chips = [];
+    if (!t.full && (hwLeft || t.blocks.length)) chips.push({l: '▶ Inizia adesso', k: 'play'});
+    if (warn) chips.push({l: '🔧 Come lo sistemo?', k: 'fix'});
+    chips.push({l: '⏱️ Cambia tempo', k: 'ask-time'}, {l: '📅 E domani?', k: 'say', v: 'domani'});
+    bot(h, chips);
+    if (!t.full && i.hav == null && i.max > 0) { CHQ = {k: 'hw', d: T}; bot(`E di compiti oggi quanti?${i.usualHw ? ` Di solito ${fMin(i.usualHw)}.` : ''}`, HWT.map(v => ({l: v ? fS(v) : 'Nessuno', k: 'hw', v}))); }
+  }
+  function setTimeOf(d, min) {
+    const T = today(), q0 = planOf(S.st, T).today.q; min = clamp(Math.round((+min || 0) / 5) * 5, 0, 240);
+    mutate(() => { EN.setDay(S.st, T, d, {av: min}); });
+    if (d === T) return todaySay(min === 0 ? 'Ok, oggi riposo. Il lavoro non sparisce: lo sposto sui prossimi giorni.' : `Ok, oggi hai ${fMin(min)}.`);
+    if (min > 0) return dayPlan(d, `Ok, ${dayName(d)} hai ${fMin(min)}.`);
+    const q1 = planOf(S.st, T).today.q;
+    bot(`Ok, ${dayName(d)} niente studio: il piano lo salta.${q1 !== q0 ? ` Oggi passa a ${fMin(q1)}.` : ' Oggi non cambia niente.'}`,
+      [{l: '▶ Cosa faccio oggi?', k: 'say', v: 'cosa faccio adesso?'}, {l: '🗓️ Calendario', k: 'go', v: 'cal'}]);
+  }
+  function setHwOf(d, min) {
+    const T = today(); min = clamp(Math.round((+min || 0) / 5) * 5, 0, 240);
+    mutate(() => { EN.setDay(S.st, T, d, {hw: min}); });
+    if (d === T) return todaySay(min ? `Ok, ${fMin(min)} di compiti: li conto nel tempo di oggi.` : 'Ok, niente compiti oggi.');
+    dayPlan(d, `Ok, ${dayName(d)} ${min ? `${fMin(min)} di compiti` : 'niente compiti'}.`);
+  }
+  function dayPlan(d, pre) {
+    const T = today(), p = planOf(S.st, T), x = p.days.find(y => y.d === d);
+    if (!x) return bot(`${pre ? pre + ' ' : ''}Così lontano non guardo ancora: vedo le prossime sei settimane.`, mainChips());
+    const its = calItems(x), tests = x.tests.map(findT).filter(Boolean).map(t => `📝 ${esc(tTitle(t))}`);
+    const cush = x.on === false ? !x.off && !x.busy : !x.study && !x.off;
+    let h = pre ? `${pre} In piano: ` : `<b>${cap1(dayName(d))}</b>: `;
+    if (x.off) h += 'giorno libero 🏖️.';
+    else if (x.busy) h += 'niente studio 😴.';
+    else if (!x.q && !(x.hw > 0)) h += cush ? 'cuscinetto ☂️: resta vuoto, serve per recuperare.' : 'niente da fare per le verifiche.';
+    else h += `${calItems(x, true).join(' · ')}${its.length > 1 ? `, in tutto <b>${fMin(x.q + (x.hw || 0))}</b>` : ''}.${overWhy(x)}`;
+    if (tests.length) h += ` E c'è ${tests.join(', ')}.`;
+    bot(h, [{l: '⏱️ Cambia quel giorno', k: 'day', v: d}, {l: '🗓️ Calendario', k: 'go', v: 'cal'}, {l: '▶ E oggi?', k: 'say', v: 'cosa faccio adesso?'}]);
+  }
+  function weekSay() {
+    const T = today(), p = planOf(S.st, T);
+    const ds = p.days.slice(0, 7).map(x => `${WD[EN.dow(x.d)]} ${x.off ? '🏖️' : x.busy ? '😴' : x.q + (x.hw || 0) ? fS(x.q + (x.hw || 0)) : '☂️'}`);
+    bot(`I prossimi 7 giorni: ${ds.join(' · ')}.${p.overload > 0 ? ` ⚠️ Mancano ${fMin(p.overload)}: non ci sta tutto.` : ''}`, [{l: '🗓️ Apri il calendario', k: 'go', v: 'cal'}, {l: '⏱️ La mia settimana', k: 'go', v: 'week'}]);
+  }
+  function nextSay() {
+    const T = today(), p = planOf(S.st, T), t = p.today, hwLeft = hwLeftOf(t, dInfo(T));
+    if (!checked(T) && (S.st.tests || []).some(x => x.grade == null && x.date > T)) { bot('Prima dimmi una cosa.'); return askTime(T); }
+    if (t.full) return bot('Oggi hai già fatto tutto ✅ Un pezzo in più o riposo: vanno bene tutte e due.', [{l: '➕ Un pezzo in più', k: 'go', v: 'full'}, {l: '😌 Riposo', k: 'say', v: 'grazie'}]);
+    if (hwLeft > 0) return bot(`Adesso: <b>✏️ i compiti</b>, ${fMin(hwLeft)}. Prima quelli per domani, dal più difficile. Telefono lontano.`, [{l: '▶ Timer compiti', k: 'play'}, {l: '✔ Già fatti', k: 'hwdone'}]);
+    const b = t.blocks[0], f = b ? blockInfo(b) : null;
+    if (!f) return bot('Per oggi non c\'è niente in piano. 😌', mainChips());
+    bot(`Adesso: <b>${f.e} ${esc(f.title)}</b> · ${f.what} (${f.sub.e} ${esc(tTitle(f.t))}). ${esc(f.x)}`, [{l: '▶ Inizia', k: 'play'}, {l: '😮‍💨 Non ho voglia', k: 'say', v: 'non ho voglia'}]);
+  }
+  function overSay() {
+    const T = today(), p = planOf(S.st, T), t = p.today, total = t.left + hwLeftOf(t, dInfo(T));
+    let h = `Ti capisco: vista tutta insieme sembra una montagna. Ma non devi scalarla oggi, ${pname()}. ${total > 0 ? `Oggi ti chiedo solo <b>${fMin(total)}</b>, un pezzo alla volta. Al resto penso io.` : 'Oggi non ti chiedo niente.'}`;
+    if (p.overload > 0) { CHO = T; h += " Onesto: con il tempo che hai adesso non ci sta tutto. Ma si sistema, ti faccio vedere come."; }
+    h += ' E se ti pesa tanto, dillo a mamma o papà: non devi tenertelo da solo.';
+    bot(h, [{l: '▶ Solo il primo pezzo', k: 'say', v: 'cosa faccio adesso?'}, ...(p.overload > 0 ? [{l: '🔧 Come lo sistemo?', k: 'fix'}] : []), {l: '⏱️ Oggi ho meno tempo', k: 'ask-time'}, {l: '🗓️ Solo questa settimana', k: 'go', v: 'cal'}]);
+  }
+  function fixSay() {
+    const T = today(), p = planOf(S.st, T), sun = freeSunday(p);
+    if (!(p.overload > 0)) return bot('Adesso ci sta tutto ✅ Niente da sistemare.', mainChips());
+    const late = p.tests.filter(s => s.overload > 0).map(s => `${subjOf(s.test.subj).e} ${esc(tTitle(s.test))}`).join(', ');
+    bot(`Per ${late} mancano <b>${fMin(p.overload)}</b>. Cosa si può fare:${sun ? ` ☂️ usare ${dayName(sun)} (1 h);` : ''} ⏱️ dare più tempo a qualche giorno; 📋 togliere dalla verifica le cose che sai già; 👨‍👩‍👦 parlarne con papà o mamma.`,
+      [...(sun ? [{l: `☂️ Uso ${dayName(sun)}`, k: 'sun'}] : []), {l: '🗓️ Calendario', k: 'go', v: 'cal'}, {l: '⏱️ La mia settimana', k: 'go', v: 'week'}]);
+  }
+  function nowillSay() {
+    const pool = DA.NOWILL, tip = pool[nwI++ % pool.length];
+    bot(`${tip.e} <b>${esc(tip.t)}</b> ${esc(tip.x)}`, [{l: '⏱️ Solo 5 minuti', k: 'five'}, {l: 'Un altro consiglio', k: 'say', v: 'non ho voglia'}]);
+  }
+  function crisisSay() {
+    bot('Mi dispiace tanto che stai così. Questo è più importante di qualsiasi verifica. Parlane adesso con mamma, papà o un adulto di cui ti fidi. Puoi anche chiamare o scrivere al <b>147</b> di Pro Juventute: è gratis, giorno e notte, e resta tra voi.',
+      [{l: '📞 Chiama il 147', k: 'url', v: 'tel:147'}, {l: '💬 Chat del 147', k: 'url', v: 'https://www.147.ch'}]);
+  }
+  function quickSay(q) {
+    const T = today(), sj = q.subj ? subjOf(q.subj) : null;
+    if (!q.subj) { CHQ = Object.assign(q, {k: 'qsubj'}); return bot('Che materia?', DA.SUBJECTS.filter(s => s.k !== 'altro').map(s => ({l: `${s.e} ${s.n}`, k: 'qsubj', v: s.k})).concat({l: '📓 Altro', k: 'qsubj', v: 'altro'})); }
+    if (!q.day || q.day <= T) {
+      CHQ = Object.assign(q, {k: 'qday'});
+      const ds = []; for (let n = 1; n <= 10; n++) ds.push(EN.addD(T, n));
+      return bot(`${sj.e} ${esc(sj.n)}: quando è? Tocca o scrivi (tipo «giovedì» o «il 3.12»).`, ds.map(k => ({l: `${WD[EN.dow(k)]} ${+k.slice(8, 10)}`, k: 'qday', v: k})));
+    }
+    if (EN.diff(T, q.day) > 400) { CHQ = Object.assign(q, {k: 'qday'}); return bot('Quella data è troppo lontana: controlla il giorno.', []); }
+    if (!q.size) { CHQ = Object.assign(q, {k: 'qsize'}); return bot(`${sj.e} ${esc(sj.n)} · ${fDay(q.day)}: quanto è grossa?`, SIZES.map(([k, e, n]) => ({l: `${e} ${n}`, k: 'qsize', v: k}))); }
+    if (roomLeft() <= 0) return bot(esc(roomMsg()), mainChips());
+    let test = null;
+    mutate(() => { test = EN.newTest(S.st, T, {subj: q.subj, name: '', date: q.day, sheet: false, topics: quickTopics(q.subj, q.size)}); });
+    if (!test) return bot('Non sono riuscito a metterla: controlla la data.', mainChips());
+    const b = DA.bossFor(test), p = planOf(S.st, T), s = p.tests.find(x => x.id === test.id);
+    tone(SND.boss); confetti(80, [b.e, '⚔️']);
+    bot(`⚔️ Fatto! ${sj.e} ${esc(sj.n)} ${fDay(q.day)}: in campo c'è <b>${esc(b.n)}</b>. ${s && s.status === 'rush' ? 'È vicina: niente panico, si parte da oggi.' : s ? `Sarai pronto entro ${fDay(s.readyBy)}.` : ''} Oggi in tutto: <b>${fMin(p.today.q)}</b> di studio.`,
+      [{l: '▶ Cosa faccio adesso?', k: 'say', v: 'cosa faccio adesso?'}, {l: '📋 Dividila in argomenti', k: 'edit', v: test.id}, {l: '＋ Un\'altra', k: 'say', v: 'ho una verifica'}]);
+  }
+  function helpSay() {
+    bot('Posso: dirti cosa fare <b>adesso</b>; cambiare il tempo di oggi o di un altro giorno («domani ho solo 20 minuti», «sabato ho la gara»); segnare i compiti («ho 30 minuti di compiti»); mettere una verifica («verifica di mate giovedì»); darti una mano quando non hai voglia o ti sembra troppo.', mainChips());
+  }
+  function respond(raw) {
+    const T = today(), P = EN.parse(raw, T), I = new Set(P.intents), q = CHQ, n = P.min != null ? P.min : P.num;
+    CHQ = null;
+    if (I.has('crisis')) return crisisSay();
+    if (q && q.k === 'time' && (n != null || P.none || I.has('usual'))) return setTimeOf(q.d || T, P.none ? 0 : n != null ? n : ((dInfo(T) || {}).usual || 0));
+    if (q && q.k === 'hw' && (n != null || P.none || I.has('no'))) return setHwOf(q.d || T, P.none || I.has('no') ? 0 : n);
+    if (q && q.k && q.k[0] === 'q' && q.k.length > 1 && !P.test) {
+      if (q.k === 'qsubj' && P.subj) { q.subj = P.subj; return quickSay(q); }
+      if (q.k === 'qday' && P.day) { q.day = P.day; return quickSay(q); }
+      if (q.k === 'qsize' && (P.size || I.has('help'))) { q.size = P.size || 'M'; return quickSay(q); }
+    }
+    if (P.test) return quickSay({subj: P.subj, day: P.day && P.day > T ? P.day : null, size: P.size});
+    if (P.hw && (P.min != null || P.none)) return setHwOf(P.day || T, P.none ? 0 : P.min);
+    if (P.free && P.day && !(P.min > 0)) {
+      CHQ = {k: 'time', d: P.day};
+      return bot(`Ok, ${dayName(P.day)} hai un impegno. Ti resta un po' di tempo per studiare?`, [{l: '😴 Niente', k: 'time', v: 0, d: P.day}, ...[30, 60, 120].map(v => ({l: fS(v), k: 'time', v, d: P.day}))]);
+    }
+    if (P.min != null || (P.none && P.day)) return setTimeOf(P.day || T, P.none ? 0 : P.min);
+    if (I.has('over')) return overSay();
+    if (I.has('nowill')) return nowillSay();
+    if (I.has('next')) return nextSay();
+    if (I.has('left')) return todaySay();
+    if (P.day && P.day > T) return dayPlan(P.day);
+    if (P.day === T) return todaySay();
+    if (I.has('week')) return weekSay();
+    if (I.has('done')) return bot('Grande! 💪 Segnalo così il piano lo sa: nella pagina Oggi tocca ✔ su quello che hai fatto.', [{l: '✔ Vai a Oggi', k: 'go', v: 'home'}]);
+    if (I.has('thanks')) return bot(rot(['Figurati! 💪', 'Quando vuoi.', 'Ci sono. Un pezzo alla volta.'], T), mainChips());
+    if (I.has('greet')) { CH.pop(); return chatHello(); }
+    if (I.has('help')) return helpSay();
+    if (P.none) return setTimeOf(T, 0);
+    if (n != null && n >= 5 && n <= 240 && !P.subj) return setTimeOf(T, n);
+    if (P.subj) return quickSay({subj: P.subj, day: P.day && P.day > T ? P.day : null, size: P.size});
+    bot('Non ho capito bene 🙈 Prova con parole semplici, tipo «ho 30 minuti», «cosa faccio adesso?» o «verifica di mate giovedì».', mainChips());
+  }
+  function chipDo(x) {
+    const T = today();
+    switch (x.k) {
+      case 'say': me(x.l); return respond(x.v || x.l);
+      case 'time': me(x.l); CHQ = null; return setTimeOf(EN.isDay(x.d) && x.d >= T ? x.d : T, x.v);
+      case 'fix': me(x.l); return fixSay();
+      case 'sun': { me(x.l); const d = useSunday(); return d ? dayPlan(d, `Fatto: ${dayName(d)} 1 h, solo per stavolta.`) : bot('Non trovo una domenica libera nei prossimi giorni.', mainChips()); }
+      case 'hw': me(x.l); CHQ = null; return setHwOf(T, x.v);
+      case 'ask-time': me(x.l); return askTime(T);
+      case 'qsubj': case 'qday': case 'qsize': {
+        me(x.l); const q = CHQ || {}; CHQ = null;
+        q[x.k === 'qsubj' ? 'subj' : x.k === 'qday' ? 'day' : 'size'] = x.v; return quickSay(q);
+      }
+      case 'play': go('home'); return startFirst();
+      case 'hwdone': return hwModal();
+      case 'five': { const b = planOf(S.st, T).today.blocks[0]; if (b) { go('home'); startTimer(b, true); } else toast('Oggi non c\'è niente da fare: goditela.'); return; }
+      case 'day': return showModal(dayHTML(x.v));
+      case 'edit': { const t = findT(x.v); if (t) { D = draftOf(t); go('new'); } return; }
+      case 'go': return go(x.v);
+      case 'url': try { if (/^tel:/.test(x.v)) location.href = x.v; else window.open(x.v, '_blank', 'noopener'); } catch (e) {} return;
+    }
+  }
+  function chatEnd() { setTimeout(() => { const e = $id('st-chat-end'); if (e) try { e.scrollIntoView({block: 'end'}); } catch (_) {} }, 30); }
+  function vChat(c) {
+    if (!CH.length) chatHello();
+    const last = CH[CH.length - 1]; CHIPS = last && !last.me ? last.chips : [];
+    const be = budE(c), nm = esc((P_() && P_().buddyName) || 'Coach');
+    return `${topbar(c)}${backHTML()}<h2>💬 ${nm}, il tuo coach</h2>
+      <div class="st-chat">${CH.map(m => m.me ? `<div class="st-msg me">${m.h}</div>` : `<div class="st-mrow"><span class="st-mb" aria-hidden="true">${be}</span><div class="st-msg">${m.h}</div></div>`).join('')}<div id="st-chat-end"></div></div>
+      ${CHIPS.length ? `<div class="chips st-cchips">${CHIPS.map((x, i) => `<button class="chip" data-act="st-chat-chip" data-i="${i}">${esc(x.l)}</button>`).join('')}</div>` : ''}
+      <div class="st-chin"><input class="txt" id="st-chat-in" data-stf="chat" maxlength="300" placeholder="Scrivi… (es. «ho 30 minuti»)" value="${esc(CHT)}" autocomplete="off" enterkeyhint="send" aria-label="Scrivi al coach"><button class="btn" id="st-next" data-act="st-chat-send" aria-label="Manda">➤</button></div>
+      <p class="small dim center">Il coach non va su internet: capisce frasi semplici e conosce il tuo piano. Non è una persona: per le cose importanti, parla con mamma o papà.</p>`;
+  }
+
   /* ---------- la vista ---------- */
   function errCard(c) {
     let top = ''; try { top = topbar(c); } catch (e) {}
@@ -715,9 +1238,17 @@
       boot();
       if (!S.st || typeof S.st !== 'object' || !S.st.cfg || !Array.isArray(S.st.tests)) S.st = EN.clean(S.st);
       const live = S.ui && S.ui.tab === 'studio';
-      if (yest() && !['home', 'test'].includes(nav.scr)) nav = {scr: 'home'};
+      if (yest() && !['home', 'full', 'test'].includes(nav.scr)) nav = {scr: 'home'};
       if (live && nav.scr === 'home' && !S.st.intro && !yest()) { nav = {scr: 'intro'}; introReset(false); }
+      // 4.0: la prima volta si mette la settimana (un tocco: è già compilata)
+      if (live && nav.scr === 'home' && S.st.intro && !hasWeek() && !wkLater && !yest() && !classic()) { nav = {scr: 'week'}; WK = null; }
       switch (nav.scr) {
+        case 'home': return yest() || classic() ? vHome(c, live) : vToday(c, live);
+        case 'today': return yest() ? vHome(c, live) : vToday(c, live);
+        case 'full': return vHome(c, live);
+        case 'week': return vWeek(c);
+        case 'cal': return vCal(c);
+        case 'chat': return vChat(c);
         case 'intro': return vIntro(c);
         case 'new': return vNew(c);
         case 'test': return vTest(c);
@@ -755,6 +1286,9 @@
       hp = `<span class="st-hpw">${hpHTML(nx.left, nx.total)}<span class="st-hpt">❤️ ${nx.left} / ${nx.total}</span></span>`;
       ghost = t.full || !(t.left > 0);
       if (!ghost && !yest()) btn = t.done > 0 ? '▶ Avanti con lo studio' : '▶ Inizia a studiare';
+      // 4.0: prima la domanda del giorno
+      if (!yest() && !classic() && !t.full && nx.status !== 'today' && !checked(T)) { title = 'Quanto tempo hai oggi?'; btn = '⏱️ Pianifica oggi'; ghost = false; }
+      else if (!yest() && !t.full && t.hw > 0 && hwLeftOf(t) > 0) title = `${fMin(t.left + hwLeftOf(t))} oggi, compiti compresi`;
     } else { title = "Com'è andata la verifica?"; sub = 'Segna la nota quando arriva: +10 💎, qualunque sia.'; btn = '📝 Segna la nota'; }
     return `<div class="card st-hc"><div class="row"><div class="qe">📚</div><div class="grow"><div class="label">Studio oggi</div><b style="font-size:1.2rem">${title}</b><div class="small muted">${sub}</div></div></div>${hp}<button class="btn ${ghost ? 'ghost' : ''}" data-act="st-tab">${btn}</button></div>`;
   }
@@ -771,6 +1305,9 @@
     return `<p><b>📚 Studio:</b> metti una verifica con i suoi argomenti e il piano spalma il lavoro sui giorni: ti dice i minuti di oggi e ti fa arrivare <b>pronto 2 giorni prima</b>. Gli ultimi giorni sono solo ripasso.</p>
   <p><b>👾 Boss di studio:</b> ogni verifica è un mostro e i suoi punti vita sono i minuti di lavoro rimasti. Ogni blocco lo colpisce. A zero è sconfitto: +25 💎, e altri +25 se sei in anticipo.</p>
   <p><b>😬 Se salti:</b> il lavoro non sparisce, si sposta sui giorni dopo e la quota sale. Il giorno cuscinetto (di serie la domenica) serve a recuperare. Vacanze e gare: tocca il giorno sulla mappa e il piano lo salta.</p>
+  <p><b>⏱️ Il tuo tempo:</b> in «La mia settimana» dici quanto tempo hai al massimo ogni giorno, compiti compresi (la domenica resta vuota per recuperare). Ogni giorno Studio ti chiede quanto tempo hai oggi e ti dà una cosa alla volta. La verifica più vicina passa per prima.</p>
+  <p><b>✏️ Compiti:</b> contano come studio. Occupano il tempo del giorno e valgono per la giornata piena.</p>
+  <p><b>💬 Coach:</b> scrivigli come a un amico («ho 20 minuti», «verifica di mate giovedì», «non ho voglia»). Non va su internet.</p>
   <p><b>⚔️ Serie di studio:</b> quota di oggi fatta = giornata piena (+5 XP e +5 💎; ogni 5 di fila +15 💎; se quel giorno hai fatto anche la quest, un colpo in più al boss della settimana). 1 XP ogni 3 minuti. Si premia il lavoro: la nota vale +10 💎 qualunque sia.</p>`;
   }
 
@@ -778,9 +1315,9 @@
   const clock = ms => { const s = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(s / 60)}:${pad2(s % 60)}`; };
   // il timer salvato si controlla campo per campo (S.ui si può scrivere a mano) e si rimette in forma: n intero, compito di ripasso e giorno noti
   function validTimer(tm) {
-    if (!tm || typeof tm !== 'object' || typeof tm.tid !== 'string' || !['th', 'ex', 'rev'].includes(tm.k)) return false;
+    if (!tm || typeof tm !== 'object' || typeof tm.tid !== 'string' || !['th', 'ex', 'rev', 'hw'].includes(tm.k)) return false;
     if (!Number.isFinite(tm.start) || tm.start > Date.now() + 60e3 || !Number.isFinite(tm.min) || tm.min < 1 || tm.min > 240) return false;
-    if (!(tm.aid == null || typeof tm.aid === 'string') || !(tm.end == null || Number.isFinite(tm.end)) || !findT(tm.tid)) return false;
+    if (!(tm.aid == null || typeof tm.aid === 'string') || !(tm.end == null || Number.isFinite(tm.end)) || (tm.k !== 'hw' && !findT(tm.tid))) return false;
     tm.n = tm.k === 'ex' ? clamp(typeof tm.n === 'number' && Number.isFinite(tm.n) ? Math.round(tm.n) : 1, 1, 200) : 0;
     tm.rev = own(DA.REVIEW, tm.rev) ? tm.rev : null;
     tm.five = tm.five ? 1 : 0;
@@ -839,14 +1376,14 @@
     const kinds = m.kinds && m.kinds.length > 1 ? `<div class="chips st-ctr">${m.kinds.map(k => `<button class="chip ${m.k === k ? 'on' : ''}" data-act="st-ask-k" data-v="${k}">${KIND[k].e} ${KIND[k].n}</button>`).join('')}</div>` : '';
     const body = m.k === 'ex'
       ? `<h3>Esercizi fatti</h3>${stepper('askn', String(m.vN))}${m.src === 'timer' ? `<div class="small dim">in ${fMin(Math.max(1, m.elapsed))}</div>` : ''}`
-      : `<h3>Minuti di ${m.k === 'rev' ? 'ripasso' : 'teoria'}</h3>${stepper('askm', fMin(m.vMin))}`;
+      : `<h3>Minuti di ${m.k === 'rev' ? 'ripasso' : m.k === 'hw' ? 'compiti' : 'teoria'}</h3>${stepper('askm', fMin(m.vMin))}`;
     return `<div class="mc ${full ? 'st-tm' : ''}" id="st-tm" data-state="ask">
       ${m.src === 'timer' ? `<div class="big-emoji pop" style="font-size:72px">${m.early ? '✋' : '⏰'}</div>` : ''}
       <h2>${head} ${m.src === 'timer' ? 'Cosa hai fatto davvero?' : ''}</h2>
       <p class="muted">${f.e} <b>${esc(f.title)}</b>${f.t ? ` · ${esc(tTitle(f.t))}` : ''}</p>${kinds}
       ${m.src === 'timer' && EN.isDay(m.d) && m.d < today() ? `<p class="small st-warnt">🕛 Questo timer era di ${fDay(m.d)}: lo segno su quel giorno.</p>` : ''}
       ${body}<div class="st-live" data-stl="askhp">${LIVE.askhp()}</div>
-      <button class="btn ok big" data-act="st-ask-ok">${m.k === 'rev' ? '✔ Segna il ripasso' : `💥 Colpisci ${esc(f.boss.n)}`}</button>
+      <button class="btn ok big" data-act="st-ask-ok">${m.k === 'rev' ? '✔ Segna il ripasso' : m.k === 'hw' ? '✔ Segna i compiti' : `💥 Colpisci ${esc(f.boss.n)}`}</button>
       <p class="small dim">Segna solo quello che hai fatto davvero: il piano si regola da solo.</p>
       <button class="link" data-act="st-ask-no">${m.src === 'timer' ? 'Non segno niente' : 'Annulla'}</button></div>`;
   }
@@ -1013,9 +1550,15 @@
       return `<b>${fDay(D.date)}</b> · ${inDays(n)}${n > 0 && n <= S.st.cfg.buffer + 1 ? ' · <span class="st-warnt">è vicinissima</span>' : ''}`;
     },
     ex() { return D ? `${D.t.exN} × ${D.t.exMin} min = <b>${fMin(D.t.exN * D.t.exMin)}</b> di esercizi` : ''; },
+    wktot() {
+      if (!WK) return '';
+      const tot = sum(WK.wk, x => x), h = sum(WK.hw.map((x, i) => WK.wk[i] ? x : 0), x => x);
+      return `In una settimana: fino a <b>${fMin(tot)}</b>${h ? `, di cui compiti ${fMin(h)}` : ''}`;
+    },
     askhp() {
       const m = M; if (!m) return '';
       if (m.k === 'rev') return m.vMin > 0 ? 'Il ripasso conta per la quota di oggi.' : 'Zero minuti: niente da segnare.';
+      if (m.k === 'hw') return m.vMin > 0 ? 'I compiti contano come studio.' : 'Zero minuti: niente da segnare.';
       const t = findT(m.tid), a = t && m.aid ? EN.totals(S.st, t).topics.find(x => x.id === m.aid) : null;
       if (!a) return '';
       const hp = m.k === 'ex' ? Math.min(m.vN, a.exNLeft) * a.perEx : Math.min(m.vMin, a.thLeft);
@@ -1040,8 +1583,16 @@
     wexm: {get: () => D.t.exMin, set: v => { D.t.exMin = v; }, next: (v, d) => clamp(v + d, 1, 60), fmt: v => v + ' min'},
     grade: {get: () => G ? G.v : 4, set: v => { if (G) G.v = v; }, next: (v, d) => clamp(Math.round((v + d * .25) * 4) / 4, 1, 6), fmt: gTxt},
     cap: {get: () => S.st.cfg.cap, set: v => { S.st.cfg.cap = v; EN.stamp(S.st, today(), true); save(); }, next: (v, d) => clamp(Math.round((v + d * 15) / 15) * 15, 30, 240), fmt: fMin},
+    hwm: {get: () => HWM, set: v => { HWM = v; }, next: (v, d) => clamp(snap5(v, d), 0, 600), fmt: fMin},
   };
+  // 4.0: la settimana, giorno per giorno (valori comodi: 40 minuti si raggiunge, 4 ore anche)
+  const stepIn = (list, v, d) => d > 0 ? (list.find(x => x > v) ?? list[list.length - 1]) : ([...list].reverse().find(x => x < v) ?? list[0]);
+  for (let i = 0; i < 7; i++) {
+    STP['wk' + i] = {get: () => wkDraft().wk[i], set: v => { const w = wkDraft(), was = w.wk[i]; w.wk[i] = v; if (w.hw[i] > v) w.hw[i] = stepIn(HWV, v + 1, -1); if (!was !== !v) setTimeout(render, 0); }, next: (v, d) => stepIn(WKV, v, d), fmt: fT};
+    STP['hk' + i] = {get: () => wkDraft().hw[i], set: v => { const w = wkDraft(); w.hw[i] = Math.min(v, w.wk[i]); }, next: (v, d) => stepIn(HWV, v, d), fmt: fT};
+  }
   function syncStp(key) {
+    if (/^wk\d$/.test(key) && STP['hk' + key[2]]) setTimeout(() => syncStp('hk' + key[2]), 0);
     const s = STP[key]; if (!s) return;
     const v = s.get();
     document.querySelectorAll(`[data-stp="${key}"] b`).forEach(b => { b.textContent = s.fmt(v); });
@@ -1054,6 +1605,7 @@
     tn: v => { if (D) D.t.n = String(v).slice(0, 60); },
     note: v => { if (G) G.note = String(v).slice(0, 200); },
     code: v => { IMP.code = String(v).slice(0, 400000); },
+    chat: v => { CHT = String(v).slice(0, 300); },
     offa: v => { OFF.a = EN.isDay(v) ? v : ''; },
     offb: v => { OFF.b = EN.isDay(v) ? v : ''; },
   };
@@ -1143,7 +1695,7 @@
     // nuova verifica
     'st-new': () => { if (roomLeft() <= 0) return toast(roomMsg()); D = newDraft(); go('new'); },
     'st-edit': el => { const t = findT(el.dataset.id); if (!t) return; D = draftOf(t); go('new'); },
-    'st-wz-subj': el => { const v = el.dataset.v; if (!DA.SUBJECTS.some(s => s.k === v)) return; D.subj = v; tone(SND.tap); wzStep('date'); },
+    'st-wz-subj': el => { const v = el.dataset.v; if (!DA.SUBJECTS.some(s => s.k === v)) return; D.subj = v; tone(SND.tap); wzStep(D.quick ? (EN.isDay(D.date) && D.date > today() ? 'qsize' : 'qdate') : 'date'); },
     'st-wz-date': el => { if (!EN.isDay(el.dataset.v)) return; D.date = el.dataset.v; tone(SND.tap); render(); },
     'st-wz-kind': el => { if (!['th', 'ex', 'both'].includes(el.dataset.v)) return; D.t.kind = el.dataset.v; tone(SND.tap); wzStep('tc'); },
     'st-wz-conf': el => {
@@ -1167,6 +1719,7 @@
     },
     'st-wz-next': () => {
       const s = D.step;
+      if (s === 'qdate') { if (!OKF.date()) return toast(EN.isDay(D.date) && EN.diff(today(), D.date) > 400 ? "Data troppo lontana: controlla l'anno." : 'Scegli il giorno della verifica.'); return wzStep('qsize'); }
       if (s === 'date') { if (!OKF.date()) return toast(EN.isDay(D.date) && EN.diff(today(), D.date) > 400 ? 'Data troppo lontana: controlla l\'anno.' : 'Scegli il giorno della verifica.'); D.name = D.name.trim(); return wzStep(D.topics.length ? 'hub' : 'tn'); }
       if (s === 'tn') return wzStep('tk');
       if (s === 'tt') { if (D.t.kind === 'both') return wzStep('te'); commitTopic(); return wzStep('hub'); }
@@ -1186,13 +1739,84 @@
       const b = DA.bossFor(test), tot = EN.totals(st, test);
       go('home');
       if (id) toast('Piano rifatto ✓');
-      else { tone(SND.boss); confetti(120, [b.e, '⚔️']); toast(`⚔️ ${b.n} è in campo: ${tot.left} punti vita.`); }
+      else {
+        tone(SND.boss); confetti(120, [b.e, '⚔️']);
+        const q = EN.plan(st, T).today.q;
+        toast(`⚔️ ${b.n} è in campo.${q > 0 ? ` Oggi di studio: ${fMin(q)}.` : ''}`);
+      }
     },
     'st-wz-quit': () => {
       if (D && !D.id && (D.topics.length || D.step !== 'subj')) return showModal(`<div class="mc"><h2>Lascio perdere questa verifica?</h2><p class="small muted">Quello che hai scritto fin qui non viene salvato.</p><button class="btn" data-act="st-wz-quitok">Sì, esco</button><button class="btn ghost" data-act="close">No, continuo</button></div>`);
       quitWizard();
     },
     'st-wz-quitok': () => { closeModal(); quitWizard(); },
+
+    // 4.0 · verifica veloce
+    'st-quick': el => {
+      if (roomLeft() <= 0) return toast(roomMsg());
+      const d = el.dataset.d; if (modalOpen()) closeModal();
+      D = newDraft(); D.quick = true; if (EN.isDay(d) && d > today()) D.date = d;
+      go('new');
+    },
+    'st-q-date': el => { if (!EN.isDay(el.dataset.v)) return; D.date = el.dataset.v; tone(SND.tap); wzStep('qsize'); },
+    'st-q-size': el => { const v = el.dataset.v; if (!own(SIZE, v) || !D) return; D.topics = quickTopics(D.subj, v); D.sheet = false; tone(SND.tap); A['st-wz-save'](); },
+    'st-q-detail': () => { D.quick = false; D.topics = []; D.t = newTopic(); D.ti = -1; wzStep('tn'); },
+
+    // 4.0 · la domanda del giorno
+    'st-ck-av': el => { const v = +el.dataset.v; if (!(v >= 0 && v <= 240)) return; const k = ckDraft(today()); k.av = v; if (k.hw > v) k.hw = 0; tone(SND.tap); render(); },
+    'st-ck-hw': el => { const v = +el.dataset.v; if (!(v >= 0 && v <= 240)) return; ckDraft(today()).hw = v; tone(SND.tap); render(); },
+    'st-ck-ok': () => {
+      const T = today(), k = ckDraft(T);
+      mutate(() => { EN.setDay(S.st, T, T, {av: k.av, hw: Math.min(k.hw, k.av)}); });
+      CK = null; tone(SND.done); scrollTo(0, 0);
+      const p = planOf(S.st, T);
+      toast(k.av === 0 ? '😴 Ok, oggi riposo.' : p.today.full ? '✅ Oggi sei già a posto.' : `✅ Piano fatto: ${fMin(p.today.q + (p.today.hw || 0))} oggi, un pezzo alla volta.`);
+    },
+    'st-ck-redo': () => { const T = today(); CK = null; mutate(() => { EN.setDay(S.st, T, T, {av: null}); }); go('home'); },
+
+    // 4.0 · la settimana
+    'st-wk-save': () => {
+      const w = wkDraft(), T = today(), first = !hasWeek();
+      if (!w.wk.some(v => v > 0)) return toast('Almeno un giorno con un po\' di tempo serve.');
+      let ok = false;
+      mutate(() => { ok = EN.setWeek(S.st, T, w.wk, w.hw.map((h, i) => w.wk[i] ? h : 0)); });
+      if (!ok) return toast('Non sono riuscito a salvarla. Riprova.');
+      WK = null; tone(SND.done);
+      go('home');
+      toast(first ? '⏱️ Fatto! Da adesso ogni giorno ti chiedo solo quanto tempo hai.' : '⏱️ Settimana salvata: il piano è rifatto.');
+    },
+    'st-wk-later': () => { wkLater = true; WK = null; go('home'); },
+    'st-home-set': el => { const v = el.dataset.v; if (v !== 'full' && v !== 'today') return; S.ui.stHome = v === 'full' ? 'full' : undefined; if (!S.ui.stHome) delete S.ui.stHome; save(); tone(SND.tap); render(); },
+    'st-use-sun': () => {
+      const p0 = planOf(S.st, today()), d = useSunday();
+      if (!d) return toast('Non trovo una domenica libera nei prossimi giorni.');
+      const p1 = planOf(S.st, today());
+      toast(`☂️ ${cap1(dayName(d))}: 1 h, solo per stavolta.${p1.overload < p0.overload ? ` Mancano ${p1.overload ? fMin(p1.overload) : 'zero minuti'}.` : ''}`);
+    },
+
+    // 4.0 · il calendario
+    'st-cal-day': el => { const d = el.dataset.d; if (!EN.isDay(d) || d < today()) return; showModal(dayHTML(d)); },
+    'st-day-av': el => { const d = el.dataset.d, v = el.dataset.v; if (!EN.isDay(d) || d < today()) return; mutate(() => { EN.setDay(S.st, today(), d, {av: v === '' ? null : +v}); }); tone(SND.tap); refreshDay(d); },
+    'st-day-hw': el => { const d = el.dataset.d, v = el.dataset.v; if (!EN.isDay(d) || d < today()) return; mutate(() => { EN.setDay(S.st, today(), d, {hw: v === '' ? null : +v}); }); tone(SND.tap); refreshDay(d); },
+    'st-day-off': el => { const d = el.dataset.d; if (!EN.isDay(d)) return; toggleOff(d); refreshDay(d); },
+
+    // 4.0 · i compiti
+    'st-hw-play': () => hwPlay(),
+    'st-hw-done': () => hwModal(),
+    'st-hw-ok': () => { closeModal(); hwHit(HWM, today(), false); },
+
+    // 4.0 · il coach
+    'st-chat-send': () => {
+      const el = $id('st-chat-in'), text = String((el && el.value) || CHT || '').trim().slice(0, 300);
+      if (!text) return;
+      CHT = ''; me(text); respond(text);
+      if (nav.scr === 'chat') { render(); chatEnd(); }
+    },
+    'st-chat-chip': el => {
+      const x = CHIPS[+el.dataset.i]; if (!x) return;
+      tone(SND.tap); chipDo(x);
+      if (nav.scr === 'chat' && !modalOpen()) { render(); chatEnd(); }
+    },
 
     // steppers a chip (aggiornano sul posto)
     'st-set': el => { const s = STP[el.dataset.k], v = +el.dataset.v; if (!s || !Number.isFinite(v)) return; s.set(v); tone(SND.tap); syncStp(el.dataset.k); },
@@ -1240,6 +1864,7 @@
       const m = M; if (!m) return closeModal();
       const row = {tid: m.tid, aid: m.aid, k: m.k, five: m.five, n: m.k === 'ex' ? m.vN : 0, m: m.k === 'ex' ? (m.src === 'timer' ? Math.max(1, m.elapsed) : 0) : m.vMin};
       if (m.k === 'ex' ? row.n < 1 : row.m < 1) return toast('Zero non si segna: metti quello che hai fatto, o annulla.');
+      if (m.k === 'hw') { M = null; closeModal(); return hwHit(row.m, m.src === 'timer' ? m.d : null, true); }
       if (m.src === 'timer' && EN.isDay(m.d)) row.d = m.d;      // il blocco è del giorno in cui è partito il timer, anche se risponde dopo mezzanotte
       row.timer = m.src === 'timer';                 // il timer si toglie solo quando la riga è scritta: se chiude l'app a metà, la domanda torna
       const end = endsTheory(row);
@@ -1496,6 +2121,58 @@ button.st-hrow{cursor:pointer; touch-action:manipulation}
 /* i trofei di Studio hanno nomi lunghi («Ammazzaverifiche»): a 320 px allargavano la griglia dei Trofei oltre lo schermo */
 .grid3>.badge{min-width:0; overflow-wrap:anywhere; -webkit-hyphens:auto; hyphens:auto}
 .st-hc .btn{margin-top:12px}
+/* 4.0: Oggi, la domanda del giorno, la settimana, il calendario, il coach */
+.st-lab{margin-top:14px}
+.st-now{background:var(--card2); border:2px solid var(--acc); border-radius:16px; padding:12px; margin-top:6px; box-shadow:0 4px 0 rgba(0,0,0,.25)}
+.st-now .st-ne{font-size:2.3rem; width:50px; text-align:center; flex:none; line-height:1}
+.st-now b{display:block; font-size:1.2rem; line-height:1.2; overflow-wrap:anywhere}
+.st-now p{margin:.6em 0 0}
+.st-now .st-grid2{margin-top:10px}
+.st-chg{margin:8px 0 0; padding:6px 0; min-height:40px; font-size:.9rem; text-align:left}
+.st-ck .label{margin-bottom:4px}
+.st-ck .chip{min-width:56px; justify-content:center}
+.st-upc{padding:10px 14px}
+.st-urow{display:flex; align-items:center; gap:10px; width:100%; background:none; border:0; border-top:2px solid var(--line); padding:10px 0; font:inherit; color:inherit; text-align:left; cursor:pointer; min-height:58px; touch-action:manipulation}
+.st-upc>b+.st-urow{border-top:0; margin-top:4px}
+.st-urow .xe{font-size:1.8rem; width:38px; text-align:center; flex:none}
+.st-urow .grow{min-width:0}
+.st-urow b{display:block; overflow-wrap:anywhere; line-height:1.2}
+.st-urow small{display:block; color:var(--dim); font-weight:800; font-size:.76rem; margin:2px 0 4px}
+.st-dot{flex:none; text-align:center; font-size:1.3rem; min-width:62px; line-height:1.1} .st-dot small{display:block; font-size:.64rem; color:var(--muted); font-weight:800; margin-top:2px}
+.st-week{padding:6px 14px}
+.st-wrow{display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:2px 8px; padding:10px 0; border-top:2px solid var(--line)}
+.st-wrow:first-child{border-top:0}
+.st-wrow .st-wn b{display:block; font-size:1.05rem} .st-wrow .st-wn small{color:var(--dim); font-weight:700; font-size:.78rem}
+.st-wrow .stepper{margin:0; gap:6px} .st-wrow .stepper b{font-size:1.15rem; min-width:78px} .st-wrow .stepper button{width:44px; height:44px}
+.st-wh{grid-column:1 / -1; display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:4px}
+.st-wh .stepper b{font-size:1rem; min-width:70px; color:var(--muted)} .st-wh .stepper button{width:40px; height:40px; font-size:1.2rem}
+.st-wrow.cush .st-wn b{color:var(--muted)}
+.st-calw{padding:6px 12px}
+.st-calh{display:flex; justify-content:space-between; align-items:baseline; gap:8px; padding:6px 0}
+.st-cr{display:flex; align-items:center; gap:8px; width:100%; background:none; border:0; border-top:2px solid var(--line); padding:8px 4px; font:inherit; color:inherit; text-align:left; min-height:52px}
+button.st-cr{cursor:pointer; touch-action:manipulation}
+.st-cr.now{background:rgba(255,194,61,.1); border-radius:10px; border-top-color:transparent}
+.st-cr.over .st-cm{color:var(--bad)}
+.st-cr.past{opacity:.55}
+.st-cd{flex:none; width:42px; font-weight:800; color:var(--muted); font-size:.78rem; line-height:1.05; text-transform:uppercase} .st-cd b{display:block; font-size:1.25rem; color:var(--text)}
+.st-ci{flex:1; min-width:0; font-size:.92rem; line-height:1.35; overflow-wrap:anywhere}
+.st-ci .t{color:var(--gold); font-weight:800}
+.st-cm{flex:none; text-align:right; font-weight:800; font-size:.95rem; white-space:nowrap} .st-cm small{display:block; font-size:.7rem; color:var(--dim); font-weight:700}
+.st-inl{display:inline; margin:0; padding:0 4px; min-height:0}
+.st-qd{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px}
+.st-qd .chip{flex-direction:column; align-items:center; justify-content:center; margin:0; padding:6px 2px; text-align:center; gap:0; min-width:0}
+.st-qd .chip small{font-size:.66rem; opacity:.85; font-weight:700}
+.st-chat{display:flex; flex-direction:column; gap:8px; margin:10px 0}
+.st-mrow{display:flex; align-items:flex-end; gap:6px}
+.st-mb{font-size:1.7rem; flex:none; line-height:1}
+.st-msg{background:var(--card); border:2px solid var(--line); border-radius:16px 16px 16px 4px; padding:9px 12px; max-width:86%; line-height:1.4; overflow-wrap:anywhere}
+.st-msg b{color:var(--gold)}
+.st-msg.me{align-self:flex-end; background:var(--acc); color:var(--on-acc); border-color:var(--acc); border-radius:16px 16px 4px 16px}
+.st-cchips{margin:4px -4px 8px}
+.st-cchips .chip{font-size:.95rem}
+.st-chin{display:flex; gap:8px; align-items:center; margin-top:6px}
+.st-chin .txt{margin:0; flex:1; min-width:0; font-size:16px}
+.st-chin .btn{width:auto; margin:0; padding:12px 18px; flex:none}
 @media (max-height:620px){ .st-tm{padding:12px 16px} .st-tm h2{font-size:1.3rem; margin:.25em 0} .st-clock{width:min(50vw,190px); margin:8px auto 6px} .st-clock .c b{font-size:2.7rem} .st-tmx{font-size:.95rem; margin:.3em 0} .st-x2{display:none} .st-tm .big-emoji{font-size:52px !important} .st-tm h3{margin:.6em 0 .3em} .st-tm p{margin:.3em 0} }
 @media (max-width:350px){ .st-grade .moods button span{font-size:.54rem}  .st-today{padding:12px} .st-blk{gap:6px; padding:8px 6px 8px 10px} .st-blk .xe{display:none} .st-ke{display:inline} .st-blk small{letter-spacing:0} .st-ring{width:88px; height:88px} .st-ring .c b{font-size:1.75rem} .st-hd{font-size:1.3rem} .st-mon{font-size:46px} .st-mon.big{font-size:76px} .st-ib{width:44px; height:44px} .st-sum .stat b{font-size:1.25rem} .st-stp b{min-width:104px} .st-num{font-size:2.6rem} .st-bud{width:60px} .st-bud .buddy{font-size:52px} }
 `;
